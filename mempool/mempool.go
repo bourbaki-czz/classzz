@@ -11,21 +11,22 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"github.com/classzz/classzz/cross"
 	"github.com/dchest/siphash"
 	"math"
 	"sync"
 	"sync/atomic"
 	"time"
 
-	"github.com/bourbaki-czz/classzz/blockchain"
-	"github.com/bourbaki-czz/classzz/blockchain/indexers"
-	"github.com/bourbaki-czz/classzz/btcjson"
-	"github.com/bourbaki-czz/classzz/chaincfg"
-	"github.com/bourbaki-czz/classzz/chaincfg/chainhash"
-	"github.com/bourbaki-czz/classzz/mining"
-	"github.com/bourbaki-czz/classzz/txscript"
-	"github.com/bourbaki-czz/classzz/wire"
-	"github.com/bourbaki-czz/czzutil"
+	"github.com/classzz/classzz/blockchain"
+	"github.com/classzz/classzz/blockchain/indexers"
+	"github.com/classzz/classzz/btcjson"
+	"github.com/classzz/classzz/chaincfg"
+	"github.com/classzz/classzz/chaincfg/chainhash"
+	"github.com/classzz/classzz/mining"
+	"github.com/classzz/classzz/txscript"
+	"github.com/classzz/classzz/wire"
+	"github.com/classzz/czzutil"
 )
 
 const (
@@ -64,6 +65,9 @@ type Config struct {
 	// transaction output information.
 	FetchUtxoView func(*czzutil.Tx) (*blockchain.UtxoViewpoint, error)
 
+	FetchEntangleUtxoView func(info *cross.EntangleTxInfo) bool
+
+	EntangleVerify *cross.EntangleVerify
 	// BestHeight defines the function to use to access the block height of
 	// the current best chain.
 	BestHeight func() int32
@@ -169,6 +173,7 @@ type TxPool struct {
 	mtx           sync.RWMutex
 	cfg           Config
 	pool          map[chainhash.Hash]*TxDesc
+	entanglepool  map[string]*TxDesc
 	orphans       map[chainhash.Hash]*orphanTx
 	orphansByPrev map[wire.OutPoint]map[chainhash.Hash]*czzutil.Tx
 	outpoints     map[wire.OutPoint]*czzutil.Tx
@@ -480,7 +485,16 @@ func (mp *TxPool) removeTransaction(tx *czzutil.Tx, removeRedeemers bool) {
 		for _, txIn := range txDesc.Tx.MsgTx().TxIn {
 			delete(mp.outpoints, txIn.PreviousOutPoint)
 		}
+
 		delete(mp.pool, *txHash)
+
+		einfos, _ := cross.IsEntangleTx(tx.MsgTx())
+		for _, v := range einfos {
+			ExTxType := byte(v.ExTxType)
+			key := append(v.ExtTxHash, ExTxType)
+			delete(mp.entanglepool, string(key))
+		}
+
 		atomic.StoreInt64(&mp.lastUpdated, time.Now().Unix())
 	}
 }
@@ -526,6 +540,7 @@ func (mp *TxPool) RemoveDoubleSpends(tx *czzutil.Tx) {
 func (mp *TxPool) addTransaction(utxoView *blockchain.UtxoViewpoint, tx *czzutil.Tx, height int32, fee int64) *TxDesc {
 	// Add the transaction to the pool and mark the referenced outpoints
 	// as spent by the pool.
+
 	txD := &TxDesc{
 		TxDesc: mining.TxDesc{
 			Tx:       tx,
@@ -538,6 +553,14 @@ func (mp *TxPool) addTransaction(utxoView *blockchain.UtxoViewpoint, tx *czzutil
 	}
 
 	mp.pool[*tx.Hash()] = txD
+
+	einfos, _ := cross.IsEntangleTx(tx.MsgTx())
+	for _, v := range einfos {
+		ExTxType := byte(v.ExTxType)
+		key := append(v.ExtTxHash, ExTxType)
+		mp.entanglepool[string(key)] = txD
+	}
+
 	for _, txIn := range tx.MsgTx().TxIn {
 		mp.outpoints[txIn.PreviousOutPoint] = tx
 	}
@@ -553,7 +576,6 @@ func (mp *TxPool) addTransaction(utxoView *blockchain.UtxoViewpoint, tx *czzutil
 	if mp.cfg.FeeEstimator != nil {
 		mp.cfg.FeeEstimator.ObserveTransaction(txD)
 	}
-
 	return txD
 }
 
@@ -629,6 +651,27 @@ func (mp *TxPool) fetchInputUtxos(tx *czzutil.Tx) (*blockchain.UtxoViewpoint, er
 	}
 
 	return utxoView, nil
+}
+
+func (mp *TxPool) fetchEntangleUtxos(tx *czzutil.Tx) (map[uint32]*cross.EntangleTxInfo, error) {
+
+	einfos, _ := cross.IsEntangleTx(tx.MsgTx())
+	if einfos != nil {
+		for _, v := range einfos {
+			ExTxType := byte(v.ExTxType)
+			key := append(v.ExtTxHash, ExTxType)
+
+			if _, exists := mp.entanglepool[string(key)]; exists {
+				errStr := fmt.Sprintf("[txid:%v, height:%v]", v.ExtTxHash, v.Height)
+				return einfos, errors.New("txid has already entangle:" + errStr)
+			}
+			if ok := mp.cfg.FetchEntangleUtxoView(v); ok {
+				errStr := fmt.Sprintf("[txid:%v, height:%v]", v.ExtTxHash, v.Height)
+				return einfos, errors.New("txid has already entangle:" + errStr)
+			}
+		}
+	}
+	return einfos, nil
 }
 
 // FetchTransaction returns the requested transaction from the transaction pool.
@@ -767,6 +810,21 @@ func (mp *TxPool) maybeAcceptTransaction(tx *czzutil.Tx, isNew, rateLimit, rejec
 		return nil, nil, err
 	}
 
+	einfo, err := mp.fetchEntangleUtxos(tx)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if einfo != nil {
+
+		if len(tx.MsgTx().TxOut) > 2 || len(tx.MsgTx().TxIn) > 1 {
+			return nil, nil, errors.New("not entangle tx TxOut >2 or TxIn >1")
+		}
+
+		if _, err = mp.cfg.EntangleVerify.VerifyEntangleTx(tx.MsgTx()); err != nil {
+			return nil, nil, err
+		}
+	}
 	// Don't allow the transaction if it exists in the main chain and is not
 	// not already fully spent.
 	prevOut := wire.OutPoint{Hash: *txHash}
@@ -1360,6 +1418,7 @@ func New(cfg *Config) *TxPool {
 	return &TxPool{
 		cfg:            *cfg,
 		pool:           make(map[chainhash.Hash]*TxDesc),
+		entanglepool:   make(map[string]*TxDesc),
 		orphans:        make(map[chainhash.Hash]*orphanTx),
 		orphansByPrev:  make(map[wire.OutPoint]map[chainhash.Hash]*czzutil.Tx),
 		nextExpireScan: time.Now().Add(orphanExpireScanInterval),

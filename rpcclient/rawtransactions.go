@@ -10,10 +10,10 @@ import (
 	"encoding/json"
 	"errors"
 
-	"github.com/bourbaki-czz/classzz/btcjson"
-	"github.com/bourbaki-czz/classzz/chaincfg/chainhash"
-	"github.com/bourbaki-czz/classzz/wire"
-	"github.com/bourbaki-czz/czzutil"
+	"github.com/classzz/classzz/btcjson"
+	"github.com/classzz/classzz/chaincfg/chainhash"
+	"github.com/classzz/classzz/wire"
+	"github.com/classzz/czzutil"
 )
 
 // SigHashType enumerates the available signature hashing types that the
@@ -97,13 +97,13 @@ func (r FutureGetRawTransactionResult) Receive() (*czzutil.Tx, error) {
 // the returned instance.
 //
 // See GetRawTransaction for the blocking version and more details.
-func (c *Client) GetRawTransactionAsync(txHash *chainhash.Hash) FutureGetRawTransactionResult {
-	hash := ""
-	if txHash != nil {
-		hash = txHash.String()
-	}
+func (c *Client) GetRawTransactionAsync(txHash string) FutureGetRawTransactionResult {
+	//hash := ""
+	//if txHash != nil {
+	//	hash = txHash.String()
+	//}
 
-	cmd := btcjson.NewGetRawTransactionCmd(hash, btcjson.Int(0))
+	cmd := btcjson.NewGetRawTransactionCmd(txHash, btcjson.Int(0))
 	return c.sendCmd(cmd)
 }
 
@@ -111,7 +111,7 @@ func (c *Client) GetRawTransactionAsync(txHash *chainhash.Hash) FutureGetRawTran
 //
 // See GetRawTransactionVerbose to obtain additional information about the
 // transaction.
-func (c *Client) GetRawTransaction(txHash *chainhash.Hash) (*czzutil.Tx, error) {
+func (c *Client) GetRawTransaction(txHash string) (*czzutil.Tx, error) {
 	return c.GetRawTransactionAsync(txHash).Receive()
 }
 
@@ -250,12 +250,31 @@ func (c *Client) CreateRawTransactionAsync(inputs []btcjson.TransactionInput,
 	return c.sendCmd(cmd)
 }
 
+// CreateRawTransactionAsync returns an instance of a type that can be used to
+// get the result of the RPC at some future time by invoking the Receive
+// function on the returned instance.
+//
+// See CreateRawTransaction for the blocking version and more details.
+func (c *Client) CreateRawEntangleTransactionAsync(inputs []btcjson.TransactionInput,
+	entangleOuts []btcjson.EntangleOut, lockTime *int64) FutureCreateRawTransactionResult {
+	cmd := btcjson.NewCreateRawEntangleTransactionCmd(inputs, entangleOuts, lockTime)
+	return c.sendCmd(cmd)
+}
+
 // CreateRawTransaction returns a new transaction spending the provided inputs
 // and sending to the provided addresses.
 func (c *Client) CreateRawTransaction(inputs []btcjson.TransactionInput,
 	amounts map[czzutil.Address]czzutil.Amount, lockTime *int64) (*wire.MsgTx, error) {
 
 	return c.CreateRawTransactionAsync(inputs, amounts, lockTime).Receive()
+}
+
+// CreateRawTransaction returns a new transaction spending the provided inputs
+// and sending to the provided addresses.
+func (c *Client) CreateRawEntangleTransaction(inputs []btcjson.TransactionInput,
+	entangleOuts []btcjson.EntangleOut, lockTime *int64) (*wire.MsgTx, error) {
+
+	return c.CreateRawEntangleTransactionAsync(inputs, entangleOuts, lockTime).Receive()
 }
 
 // FutureSendRawTransactionResult is a future promise to deliver the result

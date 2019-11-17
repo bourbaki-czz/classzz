@@ -10,9 +10,9 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/bourbaki-czz/classzz/txscript"
-	"github.com/bourbaki-czz/classzz/wire"
-	"github.com/bourbaki-czz/czzutil"
+	"github.com/classzz/classzz/txscript"
+	"github.com/classzz/classzz/wire"
+	"github.com/classzz/czzutil"
 )
 
 // txValidateItem holds a transaction along with which input to validate.
@@ -247,7 +247,7 @@ func checkBlockScripts(block *czzutil.Block, utxoView *UtxoViewpoint,
 		numInputs += len(tx.MsgTx().TxIn)
 	}
 	txValItems := make([]*txValidateItem, 0, numInputs)
-	for _, tx := range block.Transactions() {
+	for i, tx := range block.Transactions() {
 
 		// If the HashCache is present, and it doesn't yet contain the
 		// partial sighashes for this transaction, then we add the
@@ -270,7 +270,7 @@ func checkBlockScripts(block *czzutil.Block, utxoView *UtxoViewpoint,
 
 		for txInIdx, txIn := range tx.MsgTx().TxIn {
 			// Skip coinbases.
-			if txIn.PreviousOutPoint.Index == math.MaxUint32 {
+			if txIn.PreviousOutPoint.Index == math.MaxUint32 || i == 0 {
 				continue
 			}
 

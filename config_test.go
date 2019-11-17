@@ -3,9 +3,9 @@ package main
 import (
 	"encoding/hex"
 	"fmt"
-	"github.com/bourbaki-czz/classzz/chaincfg"
-	"github.com/bourbaki-czz/classzz/czzec"
-	"github.com/bourbaki-czz/czzutil"
+	"github.com/classzz/classzz/chaincfg"
+	"github.com/classzz/classzz/czzec"
+	"github.com/classzz/czzutil"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -93,10 +93,13 @@ func TestCreateDefaultConfigFile(t *testing.T) {
 func TestGenesisAdderss(t *testing.T) {
 
 	key, err := czzec.NewPrivateKey(czzec.S256())
+	wif, err := czzutil.NewWIF(key, &chaincfg.MainNetParams, true)
 	if err != nil {
 		t.Errorf("failed to make privKey for : %v", err)
 		return
 	}
+
+	fmt.Println("wif:", wif.String())
 	fmt.Println("priv:", hex.EncodeToString(key.Serialize()))
 	pk := (*czzec.PublicKey)(&key.PublicKey).SerializeCompressed()
 	fmt.Println("pub:", hex.EncodeToString(pk))

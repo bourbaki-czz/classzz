@@ -15,11 +15,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bourbaki-czz/classzz/chaincfg"
-	"github.com/bourbaki-czz/classzz/chaincfg/chainhash"
-	"github.com/bourbaki-czz/classzz/rpcclient"
-	"github.com/bourbaki-czz/classzz/wire"
-	"github.com/bourbaki-czz/czzutil"
+	"github.com/classzz/classzz/chaincfg"
+	"github.com/classzz/classzz/chaincfg/chainhash"
+	"github.com/classzz/classzz/rpcclient"
+	"github.com/classzz/classzz/wire"
+	"github.com/classzz/czzutil"
 )
 
 const (
@@ -456,7 +456,7 @@ func (h *Harness) GenerateAndSubmitBlockWithCustomCoinbaseOutputs(
 	if err != nil {
 		return nil, err
 	}
-	mBlock, err := h.Node.GetBlock(prevBlockHash)
+	mBlock, err := h.Node.GetBlock(prevBlockHash.String())
 	if err != nil {
 		return nil, err
 	}

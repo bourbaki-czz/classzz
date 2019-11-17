@@ -10,11 +10,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bourbaki-czz/classzz/chaincfg"
-	"github.com/bourbaki-czz/classzz/chaincfg/chainhash"
-	"github.com/bourbaki-czz/classzz/txscript"
-	"github.com/bourbaki-czz/classzz/wire"
-	"github.com/bourbaki-czz/czzutil"
+	"github.com/classzz/classzz/chaincfg"
+	"github.com/classzz/classzz/chaincfg/chainhash"
+	"github.com/classzz/classzz/txscript"
+	"github.com/classzz/classzz/wire"
+	"github.com/classzz/czzutil"
 )
 
 // TestSequenceLocksActive tests the SequenceLockActive function to ensure it
@@ -247,7 +247,7 @@ func TestSigOpsLimitsWithMultiMBBlocks(t *testing.T) {
 	// Since we're not dealing with the real block chain, set the coinbase
 	// maturity to 1.
 	chain.TstSetCoinbaseMaturity(1)
-	chain.excessiveBlockSize = 32000000
+	chain.excessiveBlockSize = 8000000
 
 	// Load up blocks such that there is a side chain.
 	// (genesis block) -> 1 -> 2 -> 3 -> 4
@@ -405,7 +405,7 @@ func newTestBlock(base, tip *wire.MsgBlock, coinbaseSigOps, tx1SigOps, tx2SigOps
 
 	// make a new valid block with duplicate transactions of the base block
 	dup := wire.NewMsgBlock(wire.NewBlockHeader(
-		1, &prevHash, &prevMRoot, easyBits, 2))
+		1, &prevHash, &prevMRoot, &wire.EmptyCIDRoot, easyBits, 2))
 	dup.Header.Timestamp = tip.Header.Timestamp.Add(time.Second)
 	for i, tx := range base.Transactions {
 		err := dup.AddTransaction(tx.Copy())

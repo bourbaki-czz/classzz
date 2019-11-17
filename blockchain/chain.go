@@ -9,16 +9,18 @@ import (
 	"bytes"
 	"container/list"
 	"fmt"
+	"github.com/classzz/classzz/cross"
+	"github.com/classzz/classzz/rpcclient"
 	"math"
 	"sync"
 	"time"
 
-	"github.com/bourbaki-czz/classzz/chaincfg"
-	"github.com/bourbaki-czz/classzz/chaincfg/chainhash"
-	"github.com/bourbaki-czz/classzz/database"
-	"github.com/bourbaki-czz/classzz/txscript"
-	"github.com/bourbaki-czz/classzz/wire"
-	"github.com/bourbaki-czz/czzutil"
+	"github.com/classzz/classzz/chaincfg"
+	"github.com/classzz/classzz/chaincfg/chainhash"
+	"github.com/classzz/classzz/database"
+	"github.com/classzz/classzz/txscript"
+	"github.com/classzz/classzz/wire"
+	"github.com/classzz/czzutil"
 )
 
 const (
@@ -225,6 +227,9 @@ type BlockChain struct {
 	// fastSyncDone chan is used to signal that the UTXO set download has
 	// finished.
 	fastSyncDone chan struct{}
+
+	//
+	entangleVerify *cross.EntangleVerify
 }
 
 // HaveBlock returns whether or not the chain instance has the block represented
@@ -2183,6 +2188,23 @@ type Config struct {
 	// Proxy is ip:port of an optional socks5 proxy to use when downloading
 	// the UTXO set in fast sync mode.
 	Proxy string
+
+	//
+	DogeCoinRPC []string
+
+	//
+	DogeCoinRPCUser string
+
+	//
+	DogeCoinRPCPass string
+
+	LtcCoinRPC []string
+
+	//
+	LtcCoinRPCUser string
+
+	//
+	LtcCoinRPCPass string
 }
 
 // New returns a BlockChain instance using the provided configuration details.
@@ -2219,6 +2241,66 @@ func New(config *Config) (*BlockChain, error) {
 		}
 	}
 
+	var dogeclients []*rpcclient.Client
+
+	for _, dogerpc := range config.DogeCoinRPC {
+		// Connect to local bitcoin core RPC server using HTTP POST mode.
+		connCfg := &rpcclient.ConnConfig{
+			Host:         dogerpc,
+			Endpoint:     "ws",
+			User:         config.DogeCoinRPCUser,
+			Pass:         config.DogeCoinRPCPass,
+			HTTPPostMode: true, // Bitcoin core only supports HTTP POST mode
+			DisableTLS:   true, // Bitcoin core does not provide TLS by default
+		}
+		if err := rpcclient.HttpClientTest(connCfg); err != nil {
+			log.Info(err)
+		}
+		// Notice the notification parameter is nil since notifications are
+		// not supported in HTTP POST mode.
+		client, err := rpcclient.New(connCfg, nil)
+		if err != nil {
+			return nil, err
+		}
+
+		dogeclients = append(dogeclients, client)
+	}
+
+	var ltcclients []*rpcclient.Client
+
+	for _, ltcrpc := range config.LtcCoinRPC {
+		// Connect to local bitcoin core RPC server using HTTP POST mode.
+		connCfg := &rpcclient.ConnConfig{
+			Host:         ltcrpc,
+			Endpoint:     "ws",
+			User:         config.LtcCoinRPCUser,
+			Pass:         config.LtcCoinRPCPass,
+			HTTPPostMode: true, // Bitcoin core only supports HTTP POST mode
+			DisableTLS:   true, // Bitcoin core does not provide TLS by default
+		}
+		if err := rpcclient.HttpClientTest(connCfg); err != nil {
+			log.Info(err)
+		}
+		// Notice the notification parameter is nil since notifications are
+		// not supported in HTTP POST mode.
+		client, err := rpcclient.New(connCfg, nil)
+		if err != nil {
+			return nil, err
+		}
+
+		ltcclients = append(ltcclients, client)
+	}
+
+	cacheEntangleInfo := &cross.CacheEntangleInfo{
+		DB: config.DB,
+	}
+
+	entangleVerify := &cross.EntangleVerify{
+		DogeCoinRPC: dogeclients,
+		LtcCoinRPC:  ltcclients,
+		Cache:       cacheEntangleInfo,
+	}
+
 	params := config.ChainParams
 	targetTimespan := int64(params.TargetTimespan / time.Second)
 	adjustmentFactor := params.RetargetAdjustmentFactor
@@ -2244,6 +2326,7 @@ func New(config *Config) (*BlockChain, error) {
 		pruneDepth:          config.PruneDepth,
 		fastSyncDataDir:     config.FastSyncDataDir,
 		fastSyncDone:        make(chan struct{}),
+		entangleVerify:      entangleVerify,
 	}
 
 	// Initialize the chain state from the passed database.  When the db
@@ -2346,4 +2429,8 @@ func (b *BlockChain) FlushCachedState(mode FlushMode) error {
 	b.chainLock.Lock()
 	defer b.chainLock.Unlock()
 	return b.utxoCache.Flush(mode, b.stateSnapshot)
+}
+
+func (b *BlockChain) GetEntangleVerify() *cross.EntangleVerify {
+	return b.entangleVerify
 }

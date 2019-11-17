@@ -12,7 +12,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"github.com/bourbaki-czz/classzz/czzrpc"
+	"github.com/classzz/classzz/czzrpc"
 	"math"
 	"net"
 	"runtime"
@@ -23,32 +23,31 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/bourbaki-czz/czzutil/gcs/builder"
+	"github.com/classzz/czzutil/gcs/builder"
 
-	"github.com/bourbaki-czz/classzz/addrmgr"
-	"github.com/bourbaki-czz/classzz/blockchain"
-	"github.com/bourbaki-czz/classzz/blockchain/indexers"
-	"github.com/bourbaki-czz/classzz/chaincfg"
-	"github.com/bourbaki-czz/classzz/chaincfg/chainhash"
-	"github.com/bourbaki-czz/classzz/connmgr"
-	"github.com/bourbaki-czz/classzz/database"
-	"github.com/bourbaki-czz/classzz/mempool"
-	"github.com/bourbaki-czz/classzz/mining"
-	"github.com/bourbaki-czz/classzz/mining/cpuminer"
-	"github.com/bourbaki-czz/classzz/netsync"
-	"github.com/bourbaki-czz/classzz/peer"
-	"github.com/bourbaki-czz/classzz/txscript"
-	"github.com/bourbaki-czz/classzz/version"
-	"github.com/bourbaki-czz/classzz/wire"
-	"github.com/bourbaki-czz/czzutil"
-	"github.com/bourbaki-czz/czzutil/bloom"
+	"github.com/classzz/classzz/addrmgr"
+	"github.com/classzz/classzz/blockchain"
+	"github.com/classzz/classzz/blockchain/indexers"
+	"github.com/classzz/classzz/chaincfg"
+	"github.com/classzz/classzz/chaincfg/chainhash"
+	"github.com/classzz/classzz/connmgr"
+	"github.com/classzz/classzz/database"
+	"github.com/classzz/classzz/mempool"
+	"github.com/classzz/classzz/mining"
+	"github.com/classzz/classzz/mining/cpuminer"
+	"github.com/classzz/classzz/netsync"
+	"github.com/classzz/classzz/peer"
+	"github.com/classzz/classzz/txscript"
+	"github.com/classzz/classzz/version"
+	"github.com/classzz/classzz/wire"
+	"github.com/classzz/czzutil"
+	"github.com/classzz/czzutil/bloom"
 )
 
 const (
 	// defaultServices describes the default services that are supported by
 	// the server.
-	defaultServices = wire.SFNodeNetwork | wire.SFNodeBloom |
-		wire.SFNodeCF | wire.SFNodeBitcoinCash
+	defaultServices = wire.SFNodeNetwork | wire.SFNodeBloom | wire.SFNodeCF
 
 	// defaultRequiredServices describes the default services that are
 	// required to be supported by outbound peers.
@@ -1941,7 +1940,9 @@ func (s *server) pushMerkleBlockMsg(sp *serverPeer, hash *chainhash.Hash,
 // handleUpdatePeerHeight updates the heights of all peers who were known to
 // announce a block we recently accepted.
 func (s *server) handleUpdatePeerHeights(state *peerState, umsg updatePeerHeightsMsg) {
+	peerLog.Debug(" (s *server) handleUpdatePeerHeights")
 	state.forAllPeers(func(sp *serverPeer) {
+		peerLog.Debug(" (s *server) handleUpdatePeerHeights", "state.forAllPeers", sp.Peer.Addr())
 		// The origin peer should already have the updated height.
 		if sp.Peer == umsg.originPeer {
 			return
@@ -1955,14 +1956,16 @@ func (s *server) handleUpdatePeerHeights(state *peerState, umsg updatePeerHeight
 		if latestBlkHash == nil {
 			return
 		}
-
 		// If the peer has recently announced a block, and this block
 		// matches our newly accepted block, then update their block
 		// height.
+		peerLog.Debug(" (s *server) handleUpdatePeerHeights", "*latestBlkHash", *latestBlkHash, "*umsg.newHash", *umsg.newHash)
+
 		if *latestBlkHash == *umsg.newHash {
 			sp.UpdateLastBlockHeight(umsg.newHeight)
 			sp.UpdateLastAnnouncedBlock(nil)
 		}
+
 	})
 }
 
@@ -3134,6 +3137,12 @@ func newServer(listenAddrs []string, db database.DB, chainParams *chaincfg.Param
 		FastSync:           cfg.FastSync,
 		FastSyncDataDir:    cfg.DataDir,
 		Proxy:              cfg.Proxy,
+		DogeCoinRPC:        cfg.DogeCoinRPC,
+		DogeCoinRPCUser:    cfg.DogeCoinRPCUser,
+		DogeCoinRPCPass:    cfg.DogeCoinRPCPass,
+		LtcCoinRPC:         cfg.LtcCoinRPC,
+		LtcCoinRPCUser:     cfg.LtcCoinRPCUser,
+		LtcCoinRPCPass:     cfg.LtcCoinRPCPass,
 	})
 	if err != nil {
 		return nil, err
@@ -3185,10 +3194,12 @@ func newServer(listenAddrs []string, db database.DB, chainParams *chaincfg.Param
 			MinRelayTxFee:        cfg.minRelayTxFee,
 			MaxTxVersion:         2,
 		},
-		ChainParams:    chainParams,
-		FetchUtxoView:  s.chain.FetchUtxoView,
-		BestHeight:     func() int32 { return s.chain.BestSnapshot().Height },
-		MedianTimePast: func() time.Time { return s.chain.BestSnapshot().MedianTime },
+		ChainParams:           chainParams,
+		FetchUtxoView:         s.chain.FetchUtxoView,
+		FetchEntangleUtxoView: s.chain.GetEntangleVerify().Cache.FetchEntangleUtxoView,
+		EntangleVerify:        s.chain.GetEntangleVerify(),
+		BestHeight:            func() int32 { return s.chain.BestSnapshot().Height },
+		MedianTimePast:        func() time.Time { return s.chain.BestSnapshot().MedianTime },
 		CalcSequenceLock: func(tx *czzutil.Tx, view *blockchain.UtxoViewpoint) (*blockchain.SequenceLock, error) {
 			return s.chain.CalcSequenceLock(tx, view, true)
 		},

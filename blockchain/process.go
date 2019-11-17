@@ -7,9 +7,9 @@ package blockchain
 import (
 	"fmt"
 
-	"github.com/bourbaki-czz/classzz/chaincfg/chainhash"
-	"github.com/bourbaki-czz/classzz/database"
-	"github.com/bourbaki-czz/czzutil"
+	"github.com/classzz/classzz/chaincfg/chainhash"
+	"github.com/classzz/classzz/database"
+	"github.com/classzz/czzutil"
 )
 
 // BehaviorFlags is a bitmask defining tweaks to the normal behavior when
@@ -188,7 +188,7 @@ func (b *BlockChain) ProcessBlock(block *czzutil.Block, flags BehaviorFlags) (bo
 		return false, false, err
 	}
 	// Perform preliminary sanity checks on the block and its transactions.
-	err = checkBlockSanity(block, b.chainParams.PowLimit, b.timeSource, flags)
+	err = checkBlockSanity(b, block, b.chainParams.PowLimit, b.timeSource, flags)
 	if err != nil {
 		return false, false, err
 	}
@@ -198,6 +198,11 @@ func (b *BlockChain) ProcessBlock(block *czzutil.Block, flags BehaviorFlags) (bo
 		b.addOrphanBlock(block)
 
 		return false, true, nil
+	}
+	if b.chainParams.EntangleHeight < block.Height() {
+		if err := b.CheckBlockEntangle(block); err != nil {
+			return false, false, err
+		}
 	}
 
 	// The block has passed all context independent checks and appears sane

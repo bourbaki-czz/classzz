@@ -12,10 +12,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bourbaki-czz/classzz/chaincfg/chainhash"
-	"github.com/bourbaki-czz/classzz/database"
-	"github.com/bourbaki-czz/classzz/wire"
-	"github.com/bourbaki-czz/czzutil"
+	"github.com/classzz/classzz/chaincfg/chainhash"
+	"github.com/classzz/classzz/database"
+	"github.com/classzz/classzz/wire"
+	"github.com/classzz/czzutil"
 )
 
 const (
@@ -1591,6 +1591,26 @@ func (b *BlockChain) BlockByHash(hash *chainhash.Hash) (*czzutil.Block, error) {
 	var block *czzutil.Block
 	err := b.db.View(func(dbTx database.Tx) error {
 		var err error
+		block, err = dbFetchBlockByNode(dbTx, node)
+		return err
+	})
+	return block, err
+}
+
+func (b *BlockChain) blockByHashAndHeight(hash *chainhash.Hash, height int32) (*czzutil.Block, error) {
+	node := &blockNode{
+		hash:   *hash,
+		height: height,
+	}
+	// Load the block from the database and return it.
+	var block *czzutil.Block
+	err := b.db.View(func(dbTx database.Tx) error {
+		var err error
+		var exists bool
+		exists, err = dbTx.HasBlock(hash)
+		if err != nil || !exists {
+			return err
+		}
 		block, err = dbFetchBlockByNode(dbTx, node)
 		return err
 	})

@@ -8,10 +8,12 @@
 package btcjson
 
 import (
+	"bytes"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
-
-	"github.com/bourbaki-czz/classzz/wire"
+	"github.com/classzz/classzz/wire"
+	"math/big"
 )
 
 // AddNodeSubCmd defines the type used in the addnode JSON-RPC command for the
@@ -56,8 +58,39 @@ type TransactionInput struct {
 // CreateRawTransactionCmd defines the createrawtransaction JSON-RPC command.
 type CreateRawTransactionCmd struct {
 	Inputs   []TransactionInput
-	Amounts  map[string]float64 `jsonrpcusage:"{\"address\":amount,...}"` // In BTC
+	Amounts  map[string]float64 `jsonrpcusage:"{\"address\":amount,...}"`
 	LockTime *int64
+}
+
+type EntangleOut struct {
+	ExTxType  uint8    `json:"extxtype"`
+	Index     uint32   `json:"index"`
+	Height    uint64   `json:"height"`
+	Amount    *big.Int `json:"amount"`
+	ExtTxHash string   `json:"exttxhash"`
+}
+
+func (info *EntangleOut) Serialize() []byte {
+	buf := new(bytes.Buffer)
+
+	buf.WriteByte(info.ExTxType)
+	binary.Write(buf, binary.LittleEndian, info.Index)
+	binary.Write(buf, binary.LittleEndian, info.Height)
+	b1 := info.Amount.Bytes()
+	len := uint8(len(b1))
+	buf.WriteByte(len)
+
+	buf.Write(b1)
+	ExtTxHash := []byte(info.ExtTxHash)
+	buf.Write(ExtTxHash)
+	return buf.Bytes()
+}
+
+// CreateRawTransactionCmd defines the createrawtransaction JSON-RPC command.
+type CreateRawEntangleTransactionCmd struct {
+	Inputs       []TransactionInput
+	EntangleOuts []EntangleOut
+	LockTime     *int64
 }
 
 // NewCreateRawTransactionCmd returns a new instance which can be used to issue
@@ -71,6 +104,19 @@ func NewCreateRawTransactionCmd(inputs []TransactionInput, amounts map[string]fl
 		Inputs:   inputs,
 		Amounts:  amounts,
 		LockTime: lockTime,
+	}
+}
+
+// NewCreateRawTransactionCmd returns a new instance which can be used to issue
+// a createrawtransaction JSON-RPC command.
+//
+// Amounts are in BTC.
+func NewCreateRawEntangleTransactionCmd(inputs []TransactionInput, entangleOuts []EntangleOut,
+	lockTime *int64) *CreateRawEntangleTransactionCmd {
+	return &CreateRawEntangleTransactionCmd{
+		Inputs:       inputs,
+		EntangleOuts: entangleOuts,
+		LockTime:     lockTime,
 	}
 }
 
@@ -440,6 +486,15 @@ func NewGetPeerInfoCmd() *GetPeerInfoCmd {
 	return &GetPeerInfoCmd{}
 }
 
+// GetPeerInfoCmd defines the getpeerinfo JSON-RPC command.
+type GetEntangleInfoCmd struct{}
+
+// NewGetPeerInfoCmd returns a new instance which can be used to issue a getpeer
+// JSON-RPC command.
+func NewGetEntangleInfoCmd() *GetEntangleInfoCmd {
+	return &GetEntangleInfoCmd{}
+}
+
 // GetRawMempoolCmd defines the getmempool JSON-RPC command.
 type GetRawMempoolCmd struct {
 	Verbose *bool `jsonrpcdefault:"false"`
@@ -792,6 +847,7 @@ func init() {
 
 	MustRegisterCmd("addnode", (*AddNodeCmd)(nil), flags)
 	MustRegisterCmd("createrawtransaction", (*CreateRawTransactionCmd)(nil), flags)
+	MustRegisterCmd("createrawentangletransaction", (*CreateRawEntangleTransactionCmd)(nil), flags)
 	MustRegisterCmd("decoderawtransaction", (*DecodeRawTransactionCmd)(nil), flags)
 	MustRegisterCmd("decodescript", (*DecodeScriptCmd)(nil), flags)
 	MustRegisterCmd("getaddednodeinfo", (*GetAddedNodeInfoCmd)(nil), flags)
@@ -810,6 +866,7 @@ func init() {
 	MustRegisterCmd("getgenerate", (*GetGenerateCmd)(nil), flags)
 	MustRegisterCmd("gethashespersec", (*GetHashesPerSecCmd)(nil), flags)
 	MustRegisterCmd("getinfo", (*GetInfoCmd)(nil), flags)
+	MustRegisterCmd("getentangleinfo", (*GetEntangleInfoCmd)(nil), flags)
 	MustRegisterCmd("getmempoolentry", (*GetMempoolEntryCmd)(nil), flags)
 	MustRegisterCmd("getmempoolinfo", (*GetMempoolInfoCmd)(nil), flags)
 	MustRegisterCmd("getmininginfo", (*GetMiningInfoCmd)(nil), flags)

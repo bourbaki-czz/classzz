@@ -13,11 +13,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bourbaki-czz/classzz/chaincfg"
-	"github.com/bourbaki-czz/classzz/chaincfg/chainhash"
-	"github.com/bourbaki-czz/classzz/peer"
-	"github.com/bourbaki-czz/classzz/wire"
 	"github.com/btcsuite/go-socks/socks"
+	"github.com/classzz/classzz/chaincfg"
+	"github.com/classzz/classzz/chaincfg/chainhash"
+	"github.com/classzz/classzz/peer"
+	"github.com/classzz/classzz/wire"
 )
 
 // fixedExcessiveBlockSize should not be the default -we want to ensure it will work in all cases
@@ -514,7 +514,7 @@ func TestPeerListeners(t *testing.T) {
 		{
 			"OnBlock",
 			wire.NewMsgBlock(wire.NewBlockHeader(1,
-				&chainhash.Hash{}, &chainhash.Hash{}, 1, 1)),
+				&chainhash.Hash{}, &chainhash.Hash{}, &wire.EmptyCIDRoot, 1, 1)),
 		},
 		{
 			"OnInv",
@@ -580,7 +580,7 @@ func TestPeerListeners(t *testing.T) {
 		{
 			"OnMerkleBlock",
 			wire.NewMsgMerkleBlock(wire.NewBlockHeader(1,
-				&chainhash.Hash{}, &chainhash.Hash{}, 1, 1)),
+				&chainhash.Hash{}, &chainhash.Hash{}, &wire.EmptyCIDRoot, 1, 1)),
 		},
 		// only one version message is allowed
 		// only one verack message is allowed

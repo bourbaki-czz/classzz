@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bourbaki-czz/classzz/chaincfg/chainhash"
-	"github.com/bourbaki-czz/classzz/wire"
+	"github.com/classzz/classzz/chaincfg/chainhash"
+	"github.com/classzz/classzz/wire"
 )
 
 // These variables are the chain proof-of-work limit parameters for each default
@@ -24,7 +24,7 @@ var (
 
 	// mainPowLimit is the highest proof of work value a Bitcoin block can
 	// have for the main network.  It is the value 2^224 - 1.
-	mainPowLimit = new(big.Int).Sub(new(big.Int).Lsh(bigOne, 246), bigOne)
+	mainPowLimit = new(big.Int).Sub(new(big.Int).Lsh(bigOne, 236), bigOne)
 
 	// regressionPowLimit is the highest proof of work value a Bitcoin block
 	// can have for the regression test network.  It is the value 2^255 - 1.
@@ -94,9 +94,11 @@ const (
 	// 68, 112, and 113.
 	DeploymentCSV
 
+	//Ensure that the time of the parent block is less than the current time
+	DeploymentSEQ
+
 	// NOTE: DefinedDeployments must always come last since it is used to
 	// determine how many defined deployments there currently are.
-
 	// DefinedDeployments is the number of currently defined deployments.
 	DefinedDeployments
 )
@@ -177,6 +179,8 @@ type Params struct {
 	// GenerateSupported specifies whether or not CPU mining is allowed.
 	GenerateSupported bool
 
+	EntangleHeight int32
+
 	// Checkpoints ordered from oldest to newest.
 	Checkpoints []Checkpoint
 
@@ -221,23 +225,34 @@ type Params struct {
 var MainNetParams = Params{
 	Name:        "mainnet",
 	Net:         wire.MainNet,
-	DefaultPort: "19526",
-	DNSSeeds:    []DNSSeed{},
+	DefaultPort: "18883",
+	DNSSeeds: []DNSSeed{
+		{"3.15.206.33", true},
+		{"18.222.100.56", true},
+		{"3.15.206.49", true},
+	},
 
 	// Chain parameters
 	GenesisBlock: &genesisBlock,
 	GenesisHash:  &genesisHash,
 
 	PowLimit:     mainPowLimit,
-	PowLimitBits: 0x2000ffff,
+	PowLimitBits: 0x1e10624d,
 
 	CoinbaseMaturity:         14,
 	SubsidyReductionInterval: 1000000,
 	TargetTimePerBlock:       30, // 10 minutes
 	GenerateSupported:        true,
 
+	EntangleHeight: 120000,
 	// Checkpoints ordered from oldest to newest.
-	Checkpoints: []Checkpoint{},
+	Checkpoints: []Checkpoint{
+		{Height: 11111, Hash: newHashFromStr("1faf0d2246f07608c6a97a6ca698055a89d07f84c52db4455addad0cc86175aa")},
+		{Height: 33333, Hash: newHashFromStr("cf3de795f31dbc20fbefc0e1b8aeeb07c41fc7e8ef748c9e7d74af767beaf1d2")},
+		{Height: 74000, Hash: newHashFromStr("0e14e6a7afb47846296111d2ade1b75527a96e898c11a8422325aad480adcc1d")},
+		{Height: 85000, Hash: newHashFromStr("bdf3bc34deb6a19df11f626cc18c5230777124cb2a83c0c3bca90dd2b523a417")},
+		{Height: 91000, Hash: newHashFromStr("676e45ca46d01099763a4b693d7aa63068e3280a9c6f576dd0fade5d01cc1439")},
+	},
 
 	// Consensus rule change deployments.
 	//
@@ -256,6 +271,11 @@ var MainNetParams = Params{
 			StartTime:  1462060800, // May 1st, 2016
 			ExpireTime: 1493596800, // May 1st, 2017
 		},
+		DeploymentSEQ: {
+			BitNumber:  0,
+			StartTime:  1572868800,    //
+			ExpireTime: math.MaxInt64, // Never expires
+		},
 	},
 
 	// Mempool parameters
@@ -265,7 +285,7 @@ var MainNetParams = Params{
 	CashAddressPrefix: "classzz", // always class-zz for mainnet
 
 	// Address encoding magics
-	LegacyPubKeyHashAddrID: 0x00, // starts with c
+	LegacyPubKeyHashAddrID: 0x00, // starts with 1
 	LegacyScriptHashAddrID: 0x05, // starts with 3
 	PrivateKeyID:           0x80, // starts with 5 (uncompressed) or K (compressed)
 

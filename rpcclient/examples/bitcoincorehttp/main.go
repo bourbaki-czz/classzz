@@ -5,7 +5,7 @@
 package main
 
 import (
-	"github.com/bourbaki-czz/classzz/rpcclient"
+	"github.com/classzz/classzz/rpcclient"
 	"log"
 )
 
@@ -35,4 +35,8 @@ func main() {
 		log.Fatal(err)
 	}
 	log.Printf("Block count: %d", blockCount)
+
+	accounts, err := client.ListAccounts()
+	log.Printf("Block accounts: %d", accounts)
+
 }

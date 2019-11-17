@@ -8,7 +8,7 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/bourbaki-czz/classzz/chaincfg/chainhash"
+	"github.com/classzz/classzz/chaincfg/chainhash"
 )
 
 var (
@@ -238,7 +238,7 @@ func (b *BlockChain) getSuitableBlock(node0 *blockNode) (*blockNode, error) {
 // This function differs from the exported CalcNextRequiredDifficulty in that
 // the exported version uses the current best chain as the previous block node
 // while this function accepts any block node.
-func (b *BlockChain) calcNextRequiredDifficulty(lastNode *blockNode, newBlockTime time.Time, algorithm DifficultyAlgorithm) (uint32, error) {
+func (b *BlockChain) calcNextRequiredDifficulty(lastNode *blockNode, newBlockTime time.Time) (uint32, error) {
 
 	// Genesis block.
 	if lastNode == nil {
@@ -260,7 +260,6 @@ func (b *BlockChain) calcNextRequiredDifficulty(lastNode *blockNode, newBlockTim
 
 	// 1 - ((timestamp - parent.timestamp) // 30
 	x.Sub(bigTime, bigParentTime)
-	log.Info("Difficulty ", "timestamp - parent.timestamp", x)
 	x.Div(x, big30)
 	x.Sub(bigOne, x)
 
@@ -279,6 +278,7 @@ func (b *BlockChain) calcNextRequiredDifficulty(lastNode *blockNode, newBlockTim
 	y.Mul(difficulty, x)
 	x.Div(y, DifficultyBoundDivisor)
 	newDifficulty := new(big.Int).Add(difficulty, x)
+	//log.Info("Difficulty ", "number", lastNode.height, "difficulty", lastNode.workSum, "newDifficulty", newDifficulty)
 
 	e := new(big.Int).Exp(big.NewInt(2), big.NewInt(256), nil)
 	nt := new(big.Int).Sub(e, newDifficulty)
@@ -288,8 +288,6 @@ func (b *BlockChain) calcNextRequiredDifficulty(lastNode *blockNode, newBlockTim
 	if newTarget.Cmp(b.chainParams.PowLimit) > 0 {
 		newTarget.Set(b.chainParams.PowLimit)
 	}
-
-	log.Info("Difficulty ", "lastNode_work", difficulty, "now_work", newDifficulty)
 	return BigToCompact(newTarget), nil
 }
 
@@ -301,8 +299,7 @@ func (b *BlockChain) calcNextRequiredDifficulty(lastNode *blockNode, newBlockTim
 func (b *BlockChain) CalcNextRequiredDifficulty(timestamp time.Time) (uint32, error) {
 	b.chainLock.Lock()
 	tip := b.bestChain.Tip()
-	difficulty, err := b.calcNextRequiredDifficulty(tip, timestamp,
-		b.SelectDifficultyAdjustmentAlgorithm(tip.height))
+	difficulty, err := b.calcNextRequiredDifficulty(tip, timestamp)
 	b.chainLock.Unlock()
 	return difficulty, err
 }

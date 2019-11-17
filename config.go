@@ -21,16 +21,16 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bourbaki-czz/classzz/chaincfg"
-	"github.com/bourbaki-czz/classzz/chaincfg/chainhash"
-	"github.com/bourbaki-czz/classzz/connmgr"
-	"github.com/bourbaki-czz/classzz/database"
-	_ "github.com/bourbaki-czz/classzz/database/ffldb"
-	"github.com/bourbaki-czz/classzz/mempool"
-	"github.com/bourbaki-czz/classzz/peer"
-	"github.com/bourbaki-czz/classzz/version"
-	"github.com/bourbaki-czz/czzutil"
 	"github.com/btcsuite/go-socks/socks"
+	"github.com/classzz/classzz/chaincfg"
+	"github.com/classzz/classzz/chaincfg/chainhash"
+	"github.com/classzz/classzz/connmgr"
+	"github.com/classzz/classzz/database"
+	_ "github.com/classzz/classzz/database/ffldb"
+	"github.com/classzz/classzz/mempool"
+	"github.com/classzz/classzz/peer"
+	"github.com/classzz/classzz/version"
+	"github.com/classzz/czzutil"
 
 	"github.com/jessevdk/go-flags"
 )
@@ -52,9 +52,9 @@ const (
 	defaultDbType                  = "ffldb"
 	defaultFreeTxRelayLimit        = 15.0
 	defaultTrickleInterval         = peer.DefaultTrickleInterval
-	defaultExcessiveBlockSize      = 32000000
+	defaultExcessiveBlockSize      = 8000000
 	defaultBlockMinSize            = 0
-	defaultBlockMaxSize            = 750000
+	defaultBlockMaxSize            = 7500000
 	blockMaxSizeMin                = 1000
 	defaultGenerate                = false
 	defaultMaxOrphanTransactions   = 100
@@ -188,6 +188,12 @@ type config struct {
 	GrpcAuthToken           string        `long:"grpcauthtoken" description:"An authentication token for the gRPC API to authenticate clients"`
 	DBCacheSize             uint64        `long:"dbcachesize" description:"The maximum size in MiB of the database cache"`
 	DBFlushInterval         uint32        `long:"dbflushinterval" description:"The number of seconds between database flushes"`
+	DogeCoinRPC             []string      `long:"dogecoinrpc" description:""`
+	DogeCoinRPCUser         string        `long:"dogecoinrpcuser" description:""`
+	DogeCoinRPCPass         string        `long:"dogecoinrpcpass" description:""`
+	LtcCoinRPC              []string      `long:"ltccoinrpc" description:""`
+	LtcCoinRPCUser          string        `long:"ltccoinrpcuser" description:""`
+	LtcCoinRPCPass          string        `long:"ltccoinrpcpass" description:""`
 	lookup                  func(string) ([]net.IP, error)
 	oniondial               func(string, string, time.Duration) (net.Conn, error)
 	dial                    func(string, string, time.Duration) (net.Conn, error)
@@ -797,10 +803,10 @@ func loadConfig() (*config, []string, error) {
 	}
 
 	// The RPC server is disabled if no username or password is provided.
-	if (cfg.RPCUser == "" || cfg.RPCPass == "") &&
-		(cfg.RPCLimitUser == "" || cfg.RPCLimitPass == "") {
-		cfg.DisableRPC = true
-	}
+	// (cfg.RPCUser == "" || cfg.RPCPass == "")
+	//if (cfg.RPCLimitUser == "" || cfg.RPCLimitPass == "") {
+	//	cfg.DisableRPC = true
+	//}
 
 	if cfg.DisableRPC {
 		czzdLog.Infof("RPC service is disabled")
@@ -947,6 +953,27 @@ func loadConfig() (*config, []string, error) {
 		return nil, nil, err
 	}
 
+	// Check mining addresses are valid and saved parsed versions.
+	cfg.miningAddrs = make([]czzutil.Address, 0, len(cfg.MiningAddrs))
+	for _, strAddr := range cfg.MiningAddrs {
+		addr, err := czzutil.DecodeAddress(strAddr, activeNetParams.Params)
+		if err != nil {
+			str := "%s: mining address '%s' failed to decode: %v"
+			err := fmt.Errorf(str, funcName, strAddr, err)
+			fmt.Fprintln(os.Stderr, err)
+			fmt.Fprintln(os.Stderr, usageMessage)
+			return nil, nil, err
+		}
+		if !addr.IsForNet(activeNetParams.Params) {
+			str := "%s: mining address '%s' is on the wrong network"
+			err := fmt.Errorf(str, funcName, strAddr)
+			fmt.Fprintln(os.Stderr, err)
+			fmt.Fprintln(os.Stderr, usageMessage)
+			return nil, nil, err
+		}
+		cfg.miningAddrs = append(cfg.miningAddrs, addr)
+	}
+
 	// Add default port to all listener addresses if needed and remove
 	// duplicate addresses.
 	cfg.Listeners = normalizeAddresses(cfg.Listeners,
@@ -968,6 +995,7 @@ func loadConfig() (*config, []string, error) {
 		allowedTLSListeners := map[string]struct{}{
 			"localhost": {},
 			"127.0.0.1": {},
+			"0.0.0.0":   {},
 			"::1":       {},
 		}
 		for _, addr := range cfg.RPCListeners {

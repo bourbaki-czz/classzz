@@ -6,17 +6,19 @@ package blockchain
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"math"
 	"math/big"
 	"time"
 
-	"github.com/bourbaki-czz/classzz/chaincfg"
-	"github.com/bourbaki-czz/classzz/chaincfg/chainhash"
-	"github.com/bourbaki-czz/classzz/consensus"
-	"github.com/bourbaki-czz/classzz/txscript"
-	"github.com/bourbaki-czz/classzz/wire"
-	"github.com/bourbaki-czz/czzutil"
+	"github.com/classzz/classzz/chaincfg"
+	"github.com/classzz/classzz/chaincfg/chainhash"
+	"github.com/classzz/classzz/consensus"
+	"github.com/classzz/classzz/cross"
+	"github.com/classzz/classzz/txscript"
+	"github.com/classzz/classzz/wire"
+	"github.com/classzz/czzutil"
 )
 
 const (
@@ -61,6 +63,8 @@ const (
 	// MaxTransactionSigOps is the maximum allowable number of sigops per
 	// transaction after the UAHF hard fork
 	MaxTransactionSigOps = 20000
+
+	allowedFutureBlockTime = 10 * time.Second
 )
 
 var (
@@ -103,8 +107,45 @@ func isNullOutpoint(outpoint *wire.OutPoint) bool {
 // transaction as opposed to a higher level util transaction.
 func IsCoinBaseTx(msgTx *wire.MsgTx) bool {
 	// A coin base must only have one transaction input.
-	if len(msgTx.TxIn) != 1 {
+	height, err := ExtractCoinbaseHeight(czzutil.NewTx(msgTx))
+	if err != nil {
 		return false
+	}
+
+	if height >= chaincfg.MainNetParams.EntangleHeight {
+		if len(msgTx.TxIn) != 3 {
+			return false
+		}
+	} else {
+		if len(msgTx.TxIn) != 1 {
+			return false
+		}
+	}
+
+	// The previous output of a coin base must have a max value index and
+	// a zero hash.
+	prevOut := &msgTx.TxIn[0].PreviousOutPoint
+	if prevOut.Index != math.MaxUint32 || prevOut.Hash != zeroHash {
+		return false
+	}
+
+	return true
+}
+func isCoinBaseInParam(tx *czzutil.Tx, chainParams *chaincfg.Params) bool {
+	msgTx := tx.MsgTx()
+	height, err := ExtractCoinbaseHeight(czzutil.NewTx(msgTx))
+	if err != nil {
+		return false
+	}
+
+	if height >= chainParams.EntangleHeight {
+		if len(msgTx.TxIn) != 3 {
+			return false
+		}
+	} else {
+		if len(msgTx.TxIn) != 1 {
+			return false
+		}
 	}
 
 	// The previous output of a coin base must have a max value index and
@@ -322,6 +363,49 @@ func CheckTransactionSanity(tx *czzutil.Tx, magneticAnomalyActive bool, scriptFl
 	return nil
 }
 
+func (b *BlockChain) checkEntangleTx(tx *czzutil.Tx) error {
+	// tmp the cache is nil
+	_, err := b.GetEntangleVerify().VerifyEntangleTx(tx.MsgTx())
+	if err != nil {
+		return err
+	}
+	return nil
+}
+func (b *BlockChain) CheckBlockEntangle(block *czzutil.Block) error {
+	curHeight := int64(0)
+	for _, tx := range block.Transactions() {
+		einfos, _ := cross.IsEntangleTx(tx.MsgTx())
+		if einfos == nil {
+			continue
+		}
+		max := int64(0)
+		for _, ii := range einfos {
+			if max < int64(ii.Height) {
+				max = int64(ii.Height)
+			}
+		}
+		if curHeight > max {
+			return errors.New("unordered entangle tx in the block")
+		}
+		err := b.checkEntangleTx(tx)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+func checkTxSequence(block *czzutil.Block, utxoView *UtxoViewpoint, chainParams *chaincfg.Params) error {
+	height := block.Height()
+	if chainParams.EntangleHeight >= height {
+		return nil
+	}
+	infos, err := getEtsInfoInBlock(block, utxoView, chainParams)
+	if err != nil {
+		return err
+	}
+	return cross.VerifyTxsSequence(infos)
+}
+
 // checkProofOfWork ensures the block header bits which indicate the target
 // difficulty is in min/max range and that the block hash is less than the
 // target difficulty as claimed.
@@ -354,8 +438,8 @@ func checkProofOfWork(header *wire.BlockHeader, powLimit *big.Int, flags Behavio
 			HeadHash: hash,
 			Target:   target,
 		}
-		fmt.Println("val", hash.String())
-		fmt.Println("target", target.String())
+		//fmt.Println("val", hash.String())
+		//fmt.Println("target", target)
 
 		if err := consensus.VerifyBlockSeal(param, header.Nonce); err != nil {
 			str := fmt.Sprintf("block hash of %064x is higher than "+
@@ -482,7 +566,7 @@ func CountP2SHSigOps(tx *czzutil.Tx, isCoinBaseTx bool, utxoView *UtxoViewpoint,
 //
 // The flags do not modify the behavior of this function directly, however they
 // are needed to pass along to checkProofOfWork.
-func checkBlockHeaderSanity(header *wire.BlockHeader, powLimit *big.Int, timeSource MedianTimeSource, flags BehaviorFlags) error {
+func checkBlockHeaderSanity(bc *BlockChain, header *wire.BlockHeader, powLimit *big.Int, timeSource MedianTimeSource, flags BehaviorFlags) error {
 	// Ensure the proof of work bits in the block header is in min/max range
 	// and the block hash is less than the target value described by the
 	// bits.
@@ -502,9 +586,19 @@ func checkBlockHeaderSanity(header *wire.BlockHeader, powLimit *big.Int, timeSou
 		return ruleError(ErrInvalidTime, str)
 	}
 
+	if header.Timestamp.After(time.Now().Add(allowedFutureBlockTime)) {
+		str := fmt.Sprintf("block timestamp of %v > time.Now()", header.Timestamp)
+		return ruleError(ErrInvalidTime, str)
+	}
+
+	prevblock, err := bc.BlockByHash(&header.PrevBlock)
+	if err != nil && int64(bc.chainParams.Deployments[chaincfg.DeploymentSEQ].StartTime) < header.Timestamp.Unix() && prevblock != nil && prevblock.MsgBlock().Header.Timestamp.After(header.Timestamp) {
+		str := fmt.Sprintf("prevheader timestamp %v > header %v", prevblock.MsgBlock().Header.Timestamp, header.Timestamp)
+		return ruleError(ErrInvalidTime, str)
+	}
+
 	// Ensure the block time is not too far in the future.
-	maxTimestamp := timeSource.AdjustedTime().Add(time.Second *
-		MaxTimeOffsetSeconds)
+	maxTimestamp := timeSource.AdjustedTime().Add(time.Second * MaxTimeOffsetSeconds)
 	if header.Timestamp.After(maxTimestamp) {
 		str := fmt.Sprintf("block timestamp of %v is too far in the "+
 			"future", header.Timestamp)
@@ -519,10 +613,11 @@ func checkBlockHeaderSanity(header *wire.BlockHeader, powLimit *big.Int, timeSou
 //
 // The flags do not modify the behavior of this function directly, however they
 // are needed to pass along to checkBlockHeaderSanity.
-func checkBlockSanity(block *czzutil.Block, powLimit *big.Int, timeSource MedianTimeSource, flags BehaviorFlags) error {
+func checkBlockSanity(b *BlockChain, block *czzutil.Block, powLimit *big.Int, timeSource MedianTimeSource, flags BehaviorFlags) error {
 	msgBlock := block.MsgBlock()
 	header := &msgBlock.Header
-	err := checkBlockHeaderSanity(header, powLimit, timeSource, flags)
+
+	err := checkBlockHeaderSanity(b, header, powLimit, timeSource, flags)
 	if err != nil {
 		return err
 	}
@@ -611,13 +706,13 @@ func checkBlockSanity(block *czzutil.Block, powLimit *big.Int, timeSource Median
 
 // CheckBlockSanity performs some preliminary checks on a block to ensure it is
 // sane before continuing with block processing.  These checks are context free.
-func CheckBlockSanity(block *czzutil.Block, powLimit *big.Int, timeSource MedianTimeSource, magneticAnomalyActive bool) error {
+func CheckBlockSanity(b *BlockChain, block *czzutil.Block, powLimit *big.Int, timeSource MedianTimeSource, magneticAnomalyActive bool) error {
 	behaviorFlags := BFNone
 
 	if magneticAnomalyActive {
 		behaviorFlags |= BFMagneticAnomaly
 	}
-	return checkBlockSanity(block, powLimit, timeSource, behaviorFlags)
+	return checkBlockSanity(b, block, powLimit, timeSource, behaviorFlags)
 }
 
 // ExtractCoinbaseHeight attempts to extract the height of the block from the
@@ -688,7 +783,7 @@ func (b *BlockChain) CheckBlockHeaderContext(header *wire.BlockHeader) error {
 
 	tip := b.bestChain.Tip()
 
-	err := checkBlockHeaderSanity(header, b.chainParams.PowLimit, b.timeSource, flags)
+	err := checkBlockHeaderSanity(b, header, b.chainParams.PowLimit, b.timeSource, flags)
 	if err != nil {
 		return err
 	}
@@ -714,8 +809,9 @@ func (b *BlockChain) checkBlockHeaderContext(header *wire.BlockHeader, prevNode 
 		// Ensure the difficulty specified in the block header matches
 		// the calculated difficulty based on the previous block and
 		// difficulty retarget rules.
-		expectedDifficulty, err := b.calcNextRequiredDifficulty(prevNode,
-			header.Timestamp, b.SelectDifficultyAdjustmentAlgorithm(blockHeight))
+		expectedDifficulty, err := b.calcNextRequiredDifficulty(prevNode, header.Timestamp)
+
+		log.Debug("checkBlockHeaderContext", "blockHeight", blockHeight, "hash", header.BlockHash(), "header", header.Timestamp)
 		if err != nil {
 			return err
 		}
@@ -856,6 +952,81 @@ func (b *BlockChain) checkBlockContext(block *czzutil.Block, prevNode *blockNode
 
 	return nil
 }
+func checkMergeTxInCoinbase(tx *czzutil.Tx, txHeight int32, utxoView *UtxoViewpoint, chainParams *chaincfg.Params) (bool, error) {
+	if chainParams.EntangleHeight >= txHeight {
+		if isCoinBaseInParam(tx, chainParams) {
+			return true, nil
+		}
+	} else {
+		if isCoinBaseInParam(tx, chainParams) {
+			for txInIndex, txIn := range tx.MsgTx().TxIn {
+				if txInIndex == 0 {
+					continue
+				}
+				// Ensure the referenced input transaction is available.
+				utxo := utxoView.LookupEntry(txIn.PreviousOutPoint)
+				if utxo == nil {
+					str := fmt.Sprintf("output %v referenced from "+
+						"transaction %s:%d does not exist", txIn.PreviousOutPoint,
+						tx.Hash(), txInIndex)
+					return true, ruleError(ErrMissingTxOut, str)
+				} else if utxo.IsSpent() {
+					str := fmt.Sprintf("output %v referenced from "+
+						"transaction %s:%d has already been spent", txIn.PreviousOutPoint,
+						tx.Hash(), txInIndex)
+					return true, ruleError(ErrSpentTxOut, str)
+				}
+				uxtoHeight := utxo.BlockHeight()
+				if uxtoHeight < chainParams.EntangleHeight-1 {
+					str := fmt.Sprintf("output %v referenced from "+
+						"the wrong height[%d,%d]", txIn.PreviousOutPoint,
+						uxtoHeight, chainParams.EntangleHeight-1)
+					return true, ruleError(ErrBadTxOutValue, str)
+				}
+				if txInIndex <= 2 {
+					if err := matchPoolFromUtxo(utxo, txInIndex, chainParams); err != nil {
+						return true, nil
+					}
+				}
+			}
+			return true, nil
+		}
+	}
+	return false, nil
+}
+func checkBlockSubsidy(block, preBlock *czzutil.Block, txHeight int32, utxoView *UtxoViewpoint, amountSubsidy int64, chainParams *chaincfg.Params) error {
+	if txHeight <= chainParams.EntangleHeight {
+		return nil
+	}
+	originIncome1, originIncome2 := amountSubsidy*19/100, amountSubsidy/100
+	originIncome3 := amountSubsidy - originIncome1 - originIncome2
+	if txHeight == chainParams.EntangleHeight {
+		originIncome1 = originIncome1 * int64(chainParams.EntangleHeight-1)
+		originIncome2 = originIncome2 * int64(chainParams.EntangleHeight-1)
+	}
+	reward1, reward2, reward3 := originIncome1, originIncome2, originIncome3
+	// check sum reward
+	summay, err := summayOfTxsAndCheck(preBlock, block, utxoView, reward3, reward1, reward2)
+	if err != nil {
+		return err
+	}
+	// check pool1 reward
+	expPool1Amount := summay.lastpool1Amount + originIncome1 - summay.EntangleAmount
+	if summay.pool1Amount != expPool1Amount {
+		return errors.New(fmt.Sprintf("BlockSubsidy:the pool1 address's reward was wrong[%v,expected:%v] height:%d ",
+			summay.pool1Amount, expPool1Amount, txHeight))
+	}
+	// check pool2 reward
+	if originIncome2+summay.lastpool2Amount != summay.pool2Amount {
+		return errors.New(fmt.Sprintf("BlockSubsidy:the pool2 address's reward was wrong[%v,expected:%v] height:%d ",
+			summay.pool2Amount, originIncome2+summay.lastpool2Amount, txHeight))
+	}
+	if summay.TotalOut > summay.TotalIn {
+		return errors.New(fmt.Sprintf("BlockSubsidy:wrong,the totalOut > totalIn,[totalOut:%v,totalIn:%v] height:%d",
+			summay.TotalOut, summay.TotalIn, txHeight))
+	}
+	return nil
+}
 
 // CheckTransactionInputs performs a series of checks on the inputs to a
 // transaction to ensure they are valid.  An example of some of the checks
@@ -870,8 +1041,12 @@ func (b *BlockChain) checkBlockContext(block *czzutil.Block, prevNode *blockNode
 // CheckTransactionSanity function prior to calling this function.
 func CheckTransactionInputs(tx *czzutil.Tx, txHeight int32, utxoView *UtxoViewpoint, chainParams *chaincfg.Params) (int64, error) {
 	// Coinbase transactions have no inputs.
-	if IsCoinBase(tx) {
-		return 0, nil
+	// if IsCoinBase(tx) {
+	// 	return 0, nil
+	// }
+
+	if ok, err := checkMergeTxInCoinbase(tx, txHeight, utxoView, chainParams); ok {
+		return 0, err
 	}
 
 	txHash := tx.Hash()
@@ -893,7 +1068,7 @@ func CheckTransactionInputs(tx *czzutil.Tx, txHeight int32, utxoView *UtxoViewpo
 
 		// Ensure the transaction is not spending coins which have not
 		// yet reached the required coinbase maturity.
-		if utxo.IsCoinBase() {
+		if utxo.IsCoinBase() && !utxo.IsPool() {
 			originHeight := utxo.BlockHeight()
 			blocksSincePrev := txHeight - originHeight
 			coinbaseMaturity := int32(chainParams.CoinbaseMaturity)
@@ -1108,7 +1283,9 @@ func (b *BlockChain) checkConnectBlock(node *blockNode, block *czzutil.Block, vi
 		// 	}
 		// }
 	}
-
+	if err := checkTxSequence(block, view, b.chainParams); err != nil {
+		return err
+	}
 	// we can use Outputs-then-inputs validation to validate the utxos.
 	err = connectTransactions(view, block, stxos, false)
 	if err != nil {
@@ -1123,14 +1300,29 @@ func (b *BlockChain) checkConnectBlock(node *blockNode, block *czzutil.Block, vi
 	var totalSatoshiOut int64
 	for _, txOut := range transactions[0].MsgTx().TxOut {
 		totalSatoshiOut += txOut.Value
+		break
 	}
-	expectedSatoshiOut := CalcBlockSubsidy(node.height, b.chainParams) +
-		totalFees
+	amountSubsidy := CalcBlockSubsidy(node.height, b.chainParams)
+	expectedSatoshiOut := amountSubsidy + totalFees
 	if totalSatoshiOut > expectedSatoshiOut {
 		str := fmt.Sprintf("coinbase transaction for block pays %v "+
 			"which is more than expected value of %v",
 			totalSatoshiOut, expectedSatoshiOut)
 		return ruleError(ErrBadCoinbaseValue, str)
+	}
+	preHash := block.MsgBlock().Header.PrevBlock
+	preHeight := node.height - 1
+	if preHeight > 0 {
+		if preblock, err := b.blockByHashAndHeight(&preHash, preHeight); err != nil {
+			str := fmt.Sprintf("cann't get preblock %v,current height: %d,err:%s",
+				preblock, node.height, err.Error())
+			return ruleError(ErrPrevBlockNotBest, str)
+		} else {
+			if err := checkBlockSubsidy(block, preblock, node.height, view,
+				amountSubsidy, b.chainParams); err != nil {
+				return err
+			}
+		}
 	}
 
 	// Don't run scripts if this node is before the latest known good
@@ -1225,7 +1417,7 @@ func (b *BlockChain) CheckConnectBlockTemplate(block *czzutil.Block) error {
 	// new rule set.
 	flags |= BFMagneticAnomaly
 
-	err = checkBlockSanity(block, b.chainParams.PowLimit, b.timeSource, flags)
+	err = checkBlockSanity(b, block, b.chainParams.PowLimit, b.timeSource, flags)
 	if err != nil {
 		return err
 	}
@@ -1240,4 +1432,210 @@ func (b *BlockChain) CheckConnectBlockTemplate(block *czzutil.Block) error {
 	view := NewUtxoViewpoint()
 	newNode := newBlockNode(&header, tip)
 	return b.checkConnectBlock(newNode, block, view, nil)
+}
+
+type KeepedInfoSummay struct {
+	TotalIn             int64
+	TotalOut            int64
+	KeepedAmountInBlock cross.KeepedAmount
+	EntangleAmount      int64
+	lastpool1Amount     int64
+	lastpool2Amount     int64
+	pool1Amount         int64
+	pool2Amount         int64
+}
+
+func getKeepedAmountFormPreBlock(block *czzutil.Block) (*cross.KeepedAmount, error) {
+	keepInfo := &cross.KeepedAmount{
+		Count: 0,
+		Items: make([]cross.KeepedItem, 0),
+	}
+	coinbaseTx, err := block.Tx(0)
+	if err == nil {
+		if len(coinbaseTx.MsgTx().TxOut) >= 4 {
+			if err := keepInfo.Parse(coinbaseTx.MsgTx().TxOut[3].PkScript); err != nil {
+				return keepInfo, err
+			}
+		}
+	}
+	return keepInfo, nil
+}
+func getPoolAmountFromPreBlock(block *czzutil.Block, summay *KeepedInfoSummay) error {
+	coinbaseTx, err := block.Tx(0)
+	if err == nil {
+		summay.lastpool1Amount = coinbaseTx.MsgTx().TxOut[1].Value
+		summay.lastpool2Amount = coinbaseTx.MsgTx().TxOut[2].Value
+	}
+	return err
+}
+
+func handleSummayEntangle(summay *KeepedInfoSummay, keepedInfo *cross.KeepedAmount, infos map[uint32]*cross.EntangleTxInfo) {
+	for _, v := range infos {
+		item := &cross.EntangleItem{
+			EType: v.ExTxType,
+			Value: new(big.Int).Set(v.Amount),
+		}
+		summay.KeepedAmountInBlock.Add(cross.KeepedItem{
+			ExTxType: item.EType,
+			Amount:   new(big.Int).Set(item.Value),
+		})
+		cross.PreCalcEntangleAmount(item, keepedInfo)
+		summay.EntangleAmount += item.Value.Int64()
+	}
+}
+
+func summayOfTxsAndCheck(preblock, block *czzutil.Block, utxoView *UtxoViewpoint, subsidy, pool1Amount, pool2Amount int64) (*KeepedInfoSummay, error) {
+	var totalIn, totalOut, amount1 int64
+	summay := &KeepedInfoSummay{
+		KeepedAmountInBlock: cross.KeepedAmount{
+			Count: 0,
+			Items: make([]cross.KeepedItem, 0),
+		},
+	}
+	keepInfo, err := getKeepedAmountFormPreBlock(preblock)
+	if err != nil {
+		return nil, err
+	}
+	if err := getPoolAmountFromPreBlock(preblock, summay); err != nil {
+		return nil, err
+	}
+	totalIn = summay.lastpool1Amount + summay.lastpool2Amount + pool1Amount + pool2Amount + subsidy
+	txs := block.Transactions()
+	for txIndex, tx := range txs {
+		if txIndex == 0 {
+			for i, txout := range tx.MsgTx().TxOut {
+				if i > 3 {
+					amount1 = amount1 + txout.Value
+				}
+				if i == 1 {
+					summay.pool1Amount = txout.Value
+				}
+				if i == 2 {
+					summay.pool2Amount = txout.Value
+				}
+				totalOut = totalOut + txout.Value
+			}
+		} else {
+			// summay all txout
+			einfos, _ := cross.IsEntangleTx(tx.MsgTx())
+			if einfos != nil {
+				handleSummayEntangle(summay, keepInfo, einfos)
+			}
+			for _, txout := range tx.MsgTx().TxOut {
+				totalOut = totalOut + txout.Value
+			}
+			// summay all txin
+			for i, txIn := range tx.MsgTx().TxIn {
+				utxo := utxoView.LookupEntry(txIn.PreviousOutPoint)
+				if utxo == nil {
+					str := fmt.Sprintf("output %v referenced from "+
+						"transaction %s:%d does not valid", txIn.PreviousOutPoint,
+						tx.Hash(), i)
+					return nil, ruleError(ErrMissingTxOut, str)
+				}
+				totalIn = totalIn + utxo.amount
+			}
+		}
+	}
+	// check entangle amount
+	if amount1 != summay.EntangleAmount {
+		return nil, errors.New(fmt.Sprintf("not match the entangle amount.[%v,%v]", amount1, summay.EntangleAmount))
+	}
+	summay.TotalIn, summay.TotalOut = totalIn, totalOut
+	return summay, nil
+}
+
+func getPoolAddress(pk []byte, chainParams *chaincfg.Params) (czzutil.Address, error) {
+	addr, err := czzutil.NewAddressPubKeyHash(pk, chainParams)
+	return addr, err
+}
+func matchPoolFromUtxo(utxo *UtxoEntry, index int, chainParams *chaincfg.Params) error {
+	CoinPool1 := []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1}
+	CoinPool2 := []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2}
+	var pool []byte
+	if index == 1 {
+		pool = CoinPool1[:]
+	} else if index == 2 {
+		pool = CoinPool2[:]
+	} else {
+		errors.New("wrong index of pool address")
+	}
+	addr, err := getPoolAddress(pool, chainParams)
+	if err != nil {
+		return errors.New("[pool not match:]" + err.Error())
+	}
+	class, addrs, reqSigs, err1 := txscript.ExtractPkScriptAddrs(pool, chainParams)
+	if err1 != nil {
+		errors.New("[pool not match:]" + err1.Error())
+	}
+	if class != txscript.PubKeyHashTy || reqSigs != 1 || len(addrs) != 1 ||
+		addr.String() != addrs[0].String() {
+		return errors.New(fmt.Sprintf("pool not match[class:%v,req:%d,addr=%v]",
+			class, reqSigs, addrs))
+	}
+	return nil
+}
+func getFee(tx *czzutil.Tx, txHeight int32, utxoView *UtxoViewpoint, chainParams *chaincfg.Params) (int64, error) {
+	if isCoinBaseInParam(tx, chainParams) {
+		return 0, nil
+	}
+	txHash := tx.Hash()
+	var totalSatoshiIn int64
+	for txInIndex, txIn := range tx.MsgTx().TxIn {
+		// Ensure the referenced input transaction is available.
+		utxo := utxoView.LookupEntry(txIn.PreviousOutPoint)
+		if utxo == nil {
+			str := fmt.Sprintf("output %v referenced from "+
+				"transaction %s:%d does not exist", txIn.PreviousOutPoint,
+				tx.Hash(), txInIndex)
+			return 0, ruleError(ErrMissingTxOut, str)
+		}
+		originTxSatoshi := utxo.Amount()
+		if originTxSatoshi < 0 {
+			str := fmt.Sprintf("transaction output has negative "+
+				"value of %v", czzutil.Amount(originTxSatoshi))
+			return 0, ruleError(ErrBadTxOutValue, str)
+		}
+		totalSatoshiIn += originTxSatoshi
+	}
+
+	// Calculate the total output amount for this transaction.  It is safe
+	// to ignore overflow and out of range errors here because those error
+	// conditions would have already been caught by checkTransactionSanity.
+	var totalSatoshiOut int64
+	for _, txOut := range tx.MsgTx().TxOut {
+		totalSatoshiOut += txOut.Value
+	}
+
+	// Ensure the transaction does not spend more than its inputs.
+	if totalSatoshiIn < totalSatoshiOut {
+		str := fmt.Sprintf("total value of all transaction inputs for "+
+			"transaction %v is %v which is less than the amount "+
+			"spent of %v", txHash, totalSatoshiIn, totalSatoshiOut)
+		return 0, ruleError(ErrSpendTooHigh, str)
+	}
+
+	// NOTE: bitcoind checks if the transaction fees are < 0 here, but that
+	// is an impossible condition because of the check above that ensures
+	// the inputs are >= the outputs.
+	txFeeInSatoshi := totalSatoshiIn - totalSatoshiOut
+	return txFeeInSatoshi, nil
+}
+func getEtsInfoInBlock(block *czzutil.Block, utxoView *UtxoViewpoint, chainParams *chaincfg.Params) ([]*cross.EtsInfo, error) {
+
+	txs := block.Transactions()
+	infos := make([]*cross.EtsInfo, 0)
+	height := block.Height()
+	for _, tx := range txs {
+		fee, err := getFee(tx, height, utxoView, chainParams)
+		if err != nil {
+			return nil, err
+		}
+		etsInfo := &cross.EtsInfo{
+			FeePerKB: fee * 1000 / int64(tx.MsgTx().SerializeSize()),
+			Tx:       tx.MsgTx(),
+		}
+		infos = append(infos, etsInfo)
+	}
+	return infos, nil
 }

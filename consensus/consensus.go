@@ -4,7 +4,7 @@ package consensus
 import (
 	"encoding/binary"
 	"errors"
-	"github.com/bourbaki-czz/classzz/chaincfg/chainhash"
+	"github.com/classzz/classzz/chaincfg/chainhash"
 	"golang.org/x/crypto/sha3"
 	"hash"
 	"math/big"
@@ -79,6 +79,7 @@ func MineBlock(conf *MiningParam) (uint64, bool) {
 			return nonce, found
 		default:
 			result := CZZhashFull(conf.Info.HeadHash[:], nonce)
+
 			if new(big.Int).SetBytes(result).Cmp(conf.Info.Target) <= 0 {
 				found = true
 				return nonce, found

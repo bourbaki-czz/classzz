@@ -6,14 +6,15 @@ package blockchain
 
 import (
 	"container/list"
+	"errors"
 	"fmt"
-	"github.com/bourbaki-czz/classzz/txscript"
 	"sync"
 
-	"github.com/bourbaki-czz/classzz/chaincfg/chainhash"
-	"github.com/bourbaki-czz/classzz/database"
-	"github.com/bourbaki-czz/classzz/wire"
-	"github.com/bourbaki-czz/czzutil"
+	"github.com/classzz/classzz/chaincfg/chainhash"
+	"github.com/classzz/classzz/database"
+	"github.com/classzz/classzz/txscript"
+	"github.com/classzz/classzz/wire"
+	"github.com/classzz/czzutil"
 )
 
 const (
@@ -54,6 +55,7 @@ const (
 	// know we do not need to commit them.  It is always safe to not mark
 	// tfFresh if that condition is not guaranteed.
 	tfFresh
+	tfPool
 )
 
 // UtxoEntry houses details about an individual transaction output in a utxo
@@ -83,6 +85,10 @@ type UtxoEntry struct {
 // transaction.
 func (entry *UtxoEntry) IsCoinBase() bool {
 	return entry.packedFlags&tfCoinBase == tfCoinBase
+}
+
+func (entry *UtxoEntry) IsPool() bool {
+	return entry.packedFlags&tfPool == tfPool
 }
 
 // IsSpent returns whether or not the output has been spent based upon the
@@ -842,4 +848,47 @@ func (s *utxoCache) InitConsistentState(tip *blockNode, fastSync bool, interrupt
 	log.Debug("UTXO state reconstruction done")
 
 	return nil
+}
+func (s *utxoCache) FetchPoolAddrView(outs []*wire.OutPoint) (*UtxoViewpoint, error) {
+	s.mtx.Lock()
+	defer s.mtx.Unlock()
+
+	view := NewUtxoViewpoint()
+	viewEntries := view.Entries()
+
+	for _, out := range outs {
+		entry, err := s.getEntry(*out)
+		if err != nil {
+			return nil, err
+		}
+		viewEntries[*out] = entry.Clone()
+	}
+
+	return view, nil
+}
+
+func (b *BlockChain) FetchPoolUtxoView(hash *chainhash.Hash, height int32) (*UtxoViewpoint, error) {
+
+	block, err := b.BlockByHash(hash)
+	if err != nil {
+		return nil, err
+	}
+	if block.Height() != height {
+		return nil, errors.New("the height not match")
+	}
+	tx, err := block.Tx(0)
+	if err != nil {
+		return nil, err
+	}
+
+	if b.chainParams.EntangleHeight > height+1 || (len(tx.MsgTx().TxIn) != 3 && b.chainParams.EntangleHeight > height+1) {
+		return nil, nil
+	}
+	//tx.MsgTx().TxOut[1].PkScript
+	outs := []*wire.OutPoint{wire.NewOutPoint(tx.Hash(), 1), wire.NewOutPoint(tx.Hash(), 2)}
+	//outs := []*wire.OutPoint{wire.NewOutPoint(,1),wire.NewOutPoint(hash,2)}
+	//outs := []*wire.OutPoint{&tx.MsgTx().TxIn[1].PreviousOutPoint, &tx.MsgTx().TxIn[2].PreviousOutPoint}
+	b.chainLock.RLock()
+	defer b.chainLock.RUnlock()
+	return b.utxoCache.FetchPoolAddrView(outs)
 }

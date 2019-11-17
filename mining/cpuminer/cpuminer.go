@@ -13,13 +13,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bourbaki-czz/classzz/blockchain"
-	"github.com/bourbaki-czz/classzz/chaincfg"
-	"github.com/bourbaki-czz/classzz/chaincfg/chainhash"
-	"github.com/bourbaki-czz/classzz/consensus"
-	"github.com/bourbaki-czz/classzz/mining"
-	"github.com/bourbaki-czz/classzz/wire"
-	"github.com/bourbaki-czz/czzutil"
+	"github.com/classzz/classzz/blockchain"
+	"github.com/classzz/classzz/chaincfg"
+	"github.com/classzz/classzz/chaincfg/chainhash"
+	"github.com/classzz/classzz/consensus"
+	"github.com/classzz/classzz/mining"
+	"github.com/classzz/classzz/wire"
+	"github.com/classzz/czzutil"
 )
 
 const (
@@ -39,7 +39,7 @@ const (
 	// while they are actively searching for a solution.  This is done to
 	// reduce the amount of syncs between the workers that must be done to
 	// keep track of the hashes per second.
-	hashUpdateSecs = 15
+	hashUpdateSecs = 2
 )
 
 var (
@@ -321,7 +321,7 @@ func (m *CPUMiner) solveBlock(msgBlock *wire.MsgBlock, blockHeight int32,
 	lastTxUpdate := m.g.TxSource().LastUpdated()
 	hashesCompleted := uint64(0)
 
-	fmt.Println("miner block", "number", blockHeight, "target", hex.EncodeToString(param.Info.Target.Bytes()), "workSum", blockchain.CalcWork(header.Bits))
+	fmt.Println("miner block", "hash", param.Info.HeadHash.String(), "number", blockHeight, "target", hex.EncodeToString(param.Info.Target.Bytes()), "workSum", blockchain.CalcWork(header.Bits))
 
 	for {
 		select {
@@ -349,10 +349,12 @@ func (m *CPUMiner) solveBlock(msgBlock *wire.MsgBlock, blockHeight int32,
 			}
 
 			m.g.UpdateBlockTime(msgBlock)
+			param.Info.HeadHash = header.BlockHashNoNonce()
 
 		default:
 			// Non-blocking select to fall through
 		}
+
 		header.Nonce, found = consensus.MineBlock(&param)
 		hashesCompleted += param.Loops
 		if found {
@@ -360,6 +362,7 @@ func (m *CPUMiner) solveBlock(msgBlock *wire.MsgBlock, blockHeight int32,
 			return true
 		}
 		param.Begin += param.Loops
+
 	}
 	return false
 }
@@ -420,8 +423,7 @@ out:
 		template, err := m.g.NewBlockTemplate(payToAddr)
 		m.submitBlockLock.Unlock()
 		if err != nil {
-			errStr := fmt.Sprintf("Failed to create new block "+
-				"template: %v", err)
+			errStr := fmt.Sprintf("Failed to create new block template: %v", err)
 			log.Errorf(errStr)
 			continue
 		}
@@ -450,7 +452,7 @@ func (m *CPUMiner) miningWorkerController() {
 	// workers for generating blocks.
 	var runningWorkers []chan struct{}
 	launchWorkers := func(numWorkers uint32) {
-		for i := uint32(0); i < numWorkers; i++ {
+		for i := uint32(0); i < 1; i++ {
 			quit := make(chan struct{})
 			runningWorkers = append(runningWorkers, quit)
 

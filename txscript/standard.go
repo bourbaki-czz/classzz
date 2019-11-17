@@ -5,10 +5,11 @@
 package txscript
 
 import (
+	"errors"
 	"fmt"
 
-	"github.com/bourbaki-czz/classzz/chaincfg"
-	"github.com/bourbaki-czz/czzutil"
+	"github.com/classzz/classzz/chaincfg"
+	"github.com/classzz/czzutil"
 )
 
 const (
@@ -55,6 +56,7 @@ const (
 	ScriptHashTy                     // Pay to script hash.
 	MultiSigTy                       // Multi signature.
 	NullDataTy                       // Empty data-only (provably prunable).
+	EntangleTy                       //
 )
 
 // scriptClassToName houses the human-readable strings which describe each
@@ -66,6 +68,7 @@ var scriptClassToName = []string{
 	ScriptHashTy:  "scripthash",
 	MultiSigTy:    "multisig",
 	NullDataTy:    "nulldata",
+	EntangleTy:    "EntangleTy",
 }
 
 // String implements the Stringer interface by returning the name of
@@ -146,6 +149,9 @@ func isNullData(pops []parsedOpcode) bool {
 	if l < 1 || pops[0].opcode.value != OP_RETURN {
 		return false
 	}
+	if l >= 2 && pops[1].opcode.value == OP_UNKNOWN193 {
+		return false
+	}
 
 	scriptLen := 1
 	for _, pop := range pops[1:] {
@@ -168,6 +174,20 @@ func isNullData(pops []parsedOpcode) bool {
 	return scriptLen <= MaxDataCarrierSize
 }
 
+func isEntangleTy(pops []parsedOpcode) bool {
+	// simple judge
+	return len(pops) >= 2 &&
+		pops[0].opcode.value == OP_RETURN &&
+		pops[1].opcode.value == OP_UNKNOWN193
+}
+
+func isKeepedAmountInfo(pops []parsedOpcode) bool {
+	// simple judge
+	return len(pops) >= 2 &&
+		pops[0].opcode.value == OP_RETURN &&
+		pops[1].opcode.value == OP_UNKNOWN194
+}
+
 // scriptType returns the type of the script being inspected from the known
 // standard types.
 func typeOfScript(pops []parsedOpcode) ScriptClass {
@@ -181,6 +201,8 @@ func typeOfScript(pops []parsedOpcode) ScriptClass {
 		return MultiSigTy
 	} else if isNullData(pops) {
 		return NullDataTy
+	} else if isEntangleTy(pops) {
+		return EntangleTy
 	}
 	return NonStandardTy
 }
@@ -194,6 +216,14 @@ func GetScriptClass(script []byte) ScriptClass {
 		return NonStandardTy
 	}
 	return typeOfScript(pops)
+}
+
+func IsEntangleTy(script []byte) bool {
+	pops, err := parseScript(script)
+	if err != nil {
+		return false
+	}
+	return isEntangleTy(pops)
 }
 
 // expectedInputs returns the number of arguments required by a script.
@@ -223,6 +253,8 @@ func expectedInputs(pops []parsedOpcode, class ScriptClass) int {
 		// for the extra push that is required to compensate.
 		return asSmallInt(pops[0].opcode) + 1
 
+	case EntangleTy:
+		fallthrough
 	case NullDataTy:
 		fallthrough
 	default:
@@ -346,6 +378,10 @@ func payToPubKeyHashScript(pubKeyHash []byte) ([]byte, error) {
 		Script()
 }
 
+func PayToPubKeyHashScript(pubKeyHash []byte) ([]byte, error) {
+	return payToPubKeyHashScript(pubKeyHash)
+}
+
 // payToScriptHashScript creates a new script to pay a transaction output to a
 // script hash. It is expected that the input is a valid hash.
 func payToScriptHashScript(scriptHash []byte) ([]byte, error) {
@@ -403,6 +439,26 @@ func PayToAddrScript(addr czzutil.Address) ([]byte, error) {
 	return nil, scriptError(ErrUnsupportedAddress, str)
 }
 
+// EntangleScript impl in
+func EntangleScript(data []byte) ([]byte, error) {
+	if len(data) > MaxDataCarrierSize {
+		str := fmt.Sprintf("data size %d is larger than max "+
+			"allowed size %d", len(data), MaxDataCarrierSize)
+		return nil, scriptError(ErrTooMuchNullData, str)
+	}
+	return NewScriptBuilder().AddOp(OP_RETURN).AddOp(OP_UNKNOWN193).AddData(data).Script()
+}
+
+// KeepedAmountScript impl in
+func KeepedAmountScript(data []byte) ([]byte, error) {
+	if len(data) > MaxDataCarrierSize {
+		str := fmt.Sprintf("data size %d is larger than max "+
+			"allowed size %d", len(data), MaxDataCarrierSize)
+		return nil, scriptError(ErrTooMuchNullData, str)
+	}
+	return NewScriptBuilder().AddOp(OP_RETURN).AddOp(OP_UNKNOWN194).AddData(data).Script()
+}
+
 // NullDataScript creates a provably-prunable script containing OP_RETURN
 // followed by the passed data.  An Error with the error code ErrTooMuchNullData
 // will be returned if the length of the passed data exceeds MaxDataCarrierSize.
@@ -436,6 +492,26 @@ func MultiSigScript(pubkeys []*czzutil.AddressPubKey, nrequired int) ([]byte, er
 	builder.AddOp(OP_CHECKMULTISIG)
 
 	return builder.Script()
+}
+func GetKeepedAmountData(script []byte) ([]byte, error) {
+	pops, err := parseScript(script)
+	if err != nil {
+		return nil, err
+	}
+	if !isKeepedAmountInfo(pops) {
+		return nil, errors.New("not keepedAmount info type")
+	}
+	return pops[2].data, nil
+}
+func GetEntangleInfoData(script []byte) ([]byte, error) {
+	pops, err := parseScript(script)
+	if err != nil {
+		return nil, err
+	}
+	if !isEntangleTy(pops) {
+		return nil, errors.New("not Entangle info type")
+	}
+	return pops[2].data, nil
 }
 
 // PushedData returns an array of byte slices containing any pushed data found
