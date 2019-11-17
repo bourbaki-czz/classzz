@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/classzz/classzz/wire"
+	"github.com/bourbaki-czz/classzz/wire"
 )
 
 var (

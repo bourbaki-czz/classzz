@@ -7,8 +7,8 @@ package txscript
 import (
 	"sync"
 
-	"github.com/classzz/classzz/chaincfg/chainhash"
-	"github.com/classzz/classzz/czzec"
+	"github.com/bourbaki-czz/classzz/chaincfg/chainhash"
+	"github.com/bourbaki-czz/classzz/czzec"
 )
 
 // sigCacheEntry represents an entry in the SigCache. Entries within the

@@ -10,11 +10,11 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/classzz/classzz/chaincfg/chainhash"
-	"github.com/classzz/classzz/database"
-	"github.com/classzz/classzz/txscript"
-	"github.com/classzz/classzz/wire"
-	"github.com/classzz/czzutil"
+	"github.com/bourbaki-czz/classzz/chaincfg/chainhash"
+	"github.com/bourbaki-czz/classzz/database"
+	"github.com/bourbaki-czz/classzz/txscript"
+	"github.com/bourbaki-czz/classzz/wire"
+	"github.com/bourbaki-czz/czzutil"
 )
 
 const (

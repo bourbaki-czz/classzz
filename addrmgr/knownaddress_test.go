@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/classzz/classzz/addrmgr"
-	"github.com/classzz/classzz/wire"
+	"github.com/bourbaki-czz/classzz/addrmgr"
+	"github.com/bourbaki-czz/classzz/wire"
 )
 
 func TestChance(t *testing.T) {

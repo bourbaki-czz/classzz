@@ -7,14 +7,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/classzz/classzz/blockchain"
-	"github.com/classzz/classzz/chaincfg"
-	"github.com/classzz/classzz/chaincfg/chainhash"
-	"github.com/classzz/classzz/cross"
-	"github.com/classzz/classzz/mining"
-	"github.com/classzz/classzz/txscript"
-	"github.com/classzz/classzz/wire"
-	"github.com/classzz/czzutil"
+	"github.com/bourbaki-czz/classzz/blockchain"
+	"github.com/bourbaki-czz/classzz/chaincfg"
+	"github.com/bourbaki-czz/classzz/chaincfg/chainhash"
+	"github.com/bourbaki-czz/classzz/cross"
+	"github.com/bourbaki-czz/classzz/mining"
+	"github.com/bourbaki-czz/classzz/txscript"
+	"github.com/bourbaki-czz/classzz/wire"
+	"github.com/bourbaki-czz/czzutil"
 )
 
 var (

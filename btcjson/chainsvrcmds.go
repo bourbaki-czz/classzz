@@ -12,7 +12,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
-	"github.com/classzz/classzz/wire"
+	"github.com/bourbaki-czz/classzz/wire"
 	"math/big"
 )
 

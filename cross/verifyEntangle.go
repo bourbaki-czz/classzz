@@ -3,12 +3,12 @@ package cross
 import (
 	"errors"
 	"fmt"
-	"github.com/classzz/classzz/txscript"
+	"github.com/bourbaki-czz/classzz/txscript"
 	"math/big"
 	"math/rand"
 
-	"github.com/classzz/classzz/rpcclient"
-	"github.com/classzz/classzz/wire"
+	"github.com/bourbaki-czz/classzz/rpcclient"
+	"github.com/bourbaki-czz/classzz/wire"
 )
 
 var (

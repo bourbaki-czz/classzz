@@ -9,8 +9,8 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/classzz/classzz/czzec"
-	"github.com/classzz/classzz/wire"
+	"github.com/bourbaki-czz/classzz/czzec"
+	"github.com/bourbaki-czz/classzz/wire"
 )
 
 // ScriptFlags is a bitmask defining additional operations or tests that will be

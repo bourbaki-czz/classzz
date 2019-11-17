@@ -13,9 +13,9 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/classzz/classzz/btcjson"
-	"github.com/classzz/classzz/version"
-	"github.com/classzz/czzutil"
+	"github.com/bourbaki-czz/classzz/btcjson"
+	"github.com/bourbaki-czz/classzz/version"
+	"github.com/bourbaki-czz/czzutil"
 	flags "github.com/jessevdk/go-flags"
 )
 

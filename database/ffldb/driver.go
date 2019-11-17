@@ -7,9 +7,9 @@ package ffldb
 import (
 	"fmt"
 
-	"github.com/classzz/classzz/database"
-	"github.com/classzz/classzz/wire"
-	"github.com/classzz/czzlog"
+	"github.com/bourbaki-czz/classzz/database"
+	"github.com/bourbaki-czz/classzz/wire"
+	"github.com/bourbaki-czz/czzlog"
 )
 
 var log = czzlog.Disabled

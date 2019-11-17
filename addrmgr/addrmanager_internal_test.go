@@ -7,7 +7,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/classzz/classzz/wire"
+	"github.com/bourbaki-czz/classzz/wire"
 )
 
 // randAddr generates a *wire.NetAddress backed by a random IPv4/IPv6 address.

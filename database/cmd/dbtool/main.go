@@ -10,8 +10,8 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/classzz/classzz/database"
-	"github.com/classzz/czzlog"
+	"github.com/bourbaki-czz/classzz/database"
+	"github.com/bourbaki-czz/czzlog"
 	flags "github.com/jessevdk/go-flags"
 )
 

@@ -7,8 +7,8 @@ package blockchain
 import (
 	"fmt"
 
-	"github.com/classzz/classzz/database"
-	"github.com/classzz/czzutil"
+	"github.com/bourbaki-czz/classzz/database"
+	"github.com/bourbaki-czz/czzutil"
 )
 
 // maybeAcceptBlock potentially accepts a block into the block chain and, if

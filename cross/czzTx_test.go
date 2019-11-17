@@ -9,13 +9,13 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/classzz/classzz/chaincfg"
-	"github.com/classzz/classzz/chaincfg/chainhash"
+	"github.com/bourbaki-czz/classzz/chaincfg"
+	"github.com/bourbaki-czz/classzz/chaincfg/chainhash"
 
-	// "github.com/classzz/classzz/czzec"
-	"github.com/classzz/classzz/txscript"
-	"github.com/classzz/classzz/wire"
-	"github.com/classzz/czzutil"
+	// "github.com/bourbaki-czz/classzz/czzec"
+	"github.com/bourbaki-czz/classzz/txscript"
+	"github.com/bourbaki-czz/classzz/wire"
+	"github.com/bourbaki-czz/czzutil"
 )
 
 var (
@@ -51,14 +51,14 @@ func TestCaclMode2(t *testing.T) {
 		v1 := toDoge(reserve[0], doge)
 		v2 := toLtc(reserve[1], itc)
 		fmt.Println("==============================================entangle index:", i, "==============================================")
-		fmt.Printf("entangle doge:%v [最小单位]\n", doge)
+		fmt.Printf("entangle doge:%v [锟斤拷小锟斤拷位]\n", doge)
 		fmt.Printf("entangle doge:%v [doge]\n", fromCzz1(doge).Text('f', 4))
-		fmt.Printf("to czz:%v [最小单位]\n", v1)
+		fmt.Printf("to czz:%v [锟斤拷小锟斤拷位]\n", v1)
 		fmt.Printf("to czz:%v [czz]\n", fromCzz1(v1).Text('f', 4))
 
-		fmt.Printf("entangle itc:%v [最小单位]\n", itc)
+		fmt.Printf("entangle itc:%v [锟斤拷小锟斤拷位]\n", itc)
 		fmt.Printf("entangle itc:%v [itc]\n", fromCzz1(itc).Text('f', 4))
-		fmt.Printf("to czz:%v [最小单位]\n", v2)
+		fmt.Printf("to czz:%v [锟斤拷小锟斤拷位]\n", v2)
 		fmt.Printf("to czz:%v [czz]\n", fromCzz1(v2).Text('f', 4))
 		fmt.Println("==============================================entangle index:", i, "==============================================")
 		reserve[0] = reserve[0].Add(reserve[0], doge)

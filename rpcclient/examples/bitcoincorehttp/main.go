@@ -5,7 +5,7 @@
 package main
 
 import (
-	"github.com/classzz/classzz/rpcclient"
+	"github.com/bourbaki-czz/classzz/rpcclient"
 	"log"
 )
 

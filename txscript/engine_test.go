@@ -5,12 +5,12 @@
 package txscript
 
 import (
-	"github.com/classzz/classzz/chaincfg"
-	"github.com/classzz/czzutil"
+	"github.com/bourbaki-czz/classzz/chaincfg"
+	"github.com/bourbaki-czz/czzutil"
 	"testing"
 
-	"github.com/classzz/classzz/chaincfg/chainhash"
-	"github.com/classzz/classzz/wire"
+	"github.com/bourbaki-czz/classzz/chaincfg/chainhash"
+	"github.com/bourbaki-czz/classzz/wire"
 )
 
 // TestBadPC sets the pc to a deliberately bad result then confirms that Step()

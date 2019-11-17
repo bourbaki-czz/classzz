@@ -2,7 +2,7 @@ package cross
 
 import (
 	"crypto/ecdsa"
-	"github.com/classzz/classzz/czzec"
+	"github.com/bourbaki-czz/classzz/czzec"
 )
 
 // UnmarshalPubkey converts bytes to a secp256k1 public key.

@@ -11,7 +11,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/classzz/classzz/btcjson"
+	"github.com/bourbaki-czz/classzz/btcjson"
 )
 
 // TestBtcWalletExtCmds tests all of the btcwallet extended commands marshal and

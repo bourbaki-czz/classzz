@@ -11,8 +11,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/classzz/classzz/btcjson"
-	"github.com/classzz/classzz/wire"
+	"github.com/bourbaki-czz/classzz/btcjson"
+	"github.com/bourbaki-czz/classzz/wire"
 )
 
 // TestChainSvrCmds tests all of the chain server commands marshal and unmarshal

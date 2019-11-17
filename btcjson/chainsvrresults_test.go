@@ -8,7 +8,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/classzz/classzz/btcjson"
+	"github.com/bourbaki-czz/classzz/btcjson"
 )
 
 // TestChainSvrCustomResults ensures any results that have custom marshalling

@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/classzz/classzz/chaincfg/chainhash"
+	"github.com/bourbaki-czz/classzz/chaincfg/chainhash"
 	"github.com/davecgh/go-spew/spew"
 )
 

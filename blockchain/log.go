@@ -5,7 +5,7 @@
 package blockchain
 
 import (
-	"github.com/classzz/czzlog"
+	"github.com/bourbaki-czz/czzlog"
 )
 
 // log is a logger that is initialized with no output filters.  This

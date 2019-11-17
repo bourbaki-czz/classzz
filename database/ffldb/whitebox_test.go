@@ -19,10 +19,10 @@ import (
 
 	"github.com/btcsuite/goleveldb/leveldb"
 	ldberrors "github.com/btcsuite/goleveldb/leveldb/errors"
-	"github.com/classzz/classzz/chaincfg"
-	"github.com/classzz/classzz/database"
-	"github.com/classzz/classzz/wire"
-	"github.com/classzz/czzutil"
+	"github.com/bourbaki-czz/classzz/chaincfg"
+	"github.com/bourbaki-czz/classzz/database"
+	"github.com/bourbaki-czz/classzz/wire"
+	"github.com/bourbaki-czz/czzutil"
 )
 
 // fixedExcessiveBlockSize should not be the default -we want to ensure it will work in all cases

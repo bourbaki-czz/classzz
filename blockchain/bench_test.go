@@ -7,7 +7,7 @@ package blockchain
 import (
 	"testing"
 
-	"github.com/classzz/czzutil"
+	"github.com/bourbaki-czz/czzutil"
 )
 
 // BenchmarkIsCoinBase performs a simple benchmark against the IsCoinBase

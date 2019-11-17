@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/classzz/czzutil"
+	"github.com/bourbaki-czz/czzutil"
 	flags "github.com/jessevdk/go-flags"
 )
 

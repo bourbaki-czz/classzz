@@ -8,8 +8,8 @@ import (
 	"encoding/hex"
 	"fmt"
 
-	"github.com/classzz/classzz/czzec"
-	"github.com/classzz/classzz/chaincfg/chainhash"
+	"github.com/bourbaki-czz/classzz/czzec"
+	"github.com/bourbaki-czz/classzz/chaincfg/chainhash"
 )
 
 // This example demonstrates signing a message with a secp256k1 private key that

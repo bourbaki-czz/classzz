@@ -10,10 +10,10 @@ import (
 	"encoding/json"
 	"errors"
 
-	"github.com/classzz/classzz/btcjson"
-	"github.com/classzz/classzz/chaincfg/chainhash"
-	"github.com/classzz/classzz/wire"
-	"github.com/classzz/czzutil"
+	"github.com/bourbaki-czz/classzz/btcjson"
+	"github.com/bourbaki-czz/classzz/chaincfg/chainhash"
+	"github.com/bourbaki-czz/classzz/wire"
+	"github.com/bourbaki-czz/czzutil"
 )
 
 // SigHashType enumerates the available signature hashing types that the

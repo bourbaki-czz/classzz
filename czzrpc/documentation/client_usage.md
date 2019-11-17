@@ -79,12 +79,12 @@ import (
 	"fmt"
 	"path/filepath"
 
-	pb "github.com/classzz/classzz/czzrpc/pb"
+	pb "github.com/bourbaki-czz/classzz/czzrpc/pb"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
-	"github.com/classzz/czzutil"
+	"github.com/bourbaki-czz/czzutil"
 )
 
 var certificateFile = filepath.Join(czzutil.AppDataDir("classzz", false), "rpc.cert")

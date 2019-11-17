@@ -12,10 +12,10 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/classzz/classzz/chaincfg"
-	"github.com/classzz/classzz/database"
-	"github.com/classzz/classzz/database/ffldb"
-	"github.com/classzz/czzutil"
+	"github.com/bourbaki-czz/classzz/chaincfg"
+	"github.com/bourbaki-czz/classzz/database"
+	"github.com/bourbaki-czz/classzz/database/ffldb"
+	"github.com/bourbaki-czz/czzutil"
 )
 
 // dbType is the database type name for this driver.

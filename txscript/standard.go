@@ -8,8 +8,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/classzz/classzz/chaincfg"
-	"github.com/classzz/czzutil"
+	"github.com/bourbaki-czz/classzz/chaincfg"
+	"github.com/bourbaki-czz/czzutil"
 )
 
 const (

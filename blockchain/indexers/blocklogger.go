@@ -10,8 +10,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/classzz/czzlog"
-	"github.com/classzz/czzutil"
+	"github.com/bourbaki-czz/czzlog"
+	"github.com/bourbaki-czz/czzutil"
 )
 
 // blockProgressLogger provides periodic logging for other services in order

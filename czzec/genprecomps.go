@@ -17,7 +17,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/classzz/classzz/czzec"
+	"github.com/bourbaki-czz/classzz/czzec"
 )
 
 func main() {

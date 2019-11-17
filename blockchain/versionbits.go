@@ -7,7 +7,7 @@ package blockchain
 import (
 	"math"
 
-	"github.com/classzz/classzz/chaincfg"
+	"github.com/bourbaki-czz/classzz/chaincfg"
 )
 
 const (

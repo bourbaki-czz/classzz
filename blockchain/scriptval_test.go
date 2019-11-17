@@ -9,7 +9,7 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/classzz/classzz/txscript"
+	"github.com/bourbaki-czz/classzz/txscript"
 )
 
 // TestCheckBlockScripts ensures that validating the all of the scripts in a

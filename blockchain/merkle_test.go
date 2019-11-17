@@ -5,7 +5,7 @@
 package blockchain
 
 import (
-	"github.com/classzz/czzutil"
+	"github.com/bourbaki-czz/czzutil"
 	"testing"
 )
 

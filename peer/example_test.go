@@ -10,9 +10,9 @@ import (
 	"net"
 	"time"
 
-	"github.com/classzz/classzz/chaincfg"
-	"github.com/classzz/classzz/peer"
-	"github.com/classzz/classzz/wire"
+	"github.com/bourbaki-czz/classzz/chaincfg"
+	"github.com/bourbaki-czz/classzz/peer"
+	"github.com/bourbaki-czz/classzz/wire"
 )
 
 // mockRemotePeer creates a basic inbound peer listening on the simnet port for

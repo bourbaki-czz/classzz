@@ -11,8 +11,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/classzz/classzz/chaincfg"
-	"github.com/classzz/classzz/wire"
+	"github.com/bourbaki-czz/classzz/chaincfg"
+	"github.com/bourbaki-czz/classzz/wire"
 )
 
 const (

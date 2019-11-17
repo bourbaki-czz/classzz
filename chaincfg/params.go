@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/classzz/classzz/chaincfg/chainhash"
-	"github.com/classzz/classzz/wire"
+	"github.com/bourbaki-czz/classzz/chaincfg/chainhash"
+	"github.com/bourbaki-czz/classzz/wire"
 )
 
 // These variables are the chain proof-of-work limit parameters for each default

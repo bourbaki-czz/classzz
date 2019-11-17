@@ -9,8 +9,8 @@ import (
 	"encoding/binary"
 	"fmt"
 
-	"github.com/classzz/classzz/chaincfg/chainhash"
-	"github.com/classzz/classzz/wire"
+	"github.com/bourbaki-czz/classzz/chaincfg/chainhash"
+	"github.com/bourbaki-czz/classzz/wire"
 )
 
 // SigHashType represents hash type bits at the end of a signature.

@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"hash/crc32"
 
-	"github.com/classzz/classzz/database"
+	"github.com/bourbaki-czz/classzz/database"
 )
 
 // The serialized write cursor location format is:

@@ -1,7 +1,7 @@
 package cross
 
 import (
-	"github.com/classzz/classzz/database"
+	"github.com/bourbaki-czz/classzz/database"
 )
 
 var (

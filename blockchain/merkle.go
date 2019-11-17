@@ -7,8 +7,8 @@ package blockchain
 import (
 	"math"
 
-	"github.com/classzz/classzz/chaincfg/chainhash"
-	"github.com/classzz/czzutil"
+	"github.com/bourbaki-czz/classzz/chaincfg/chainhash"
+	"github.com/bourbaki-czz/czzutil"
 )
 
 // nextPowerOfTwo returns the next highest power of two from a given number if

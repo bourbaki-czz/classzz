@@ -1094,8 +1094,8 @@ retrieve the current block height, and displays it.
 package main
 
 import (
-	"github.com/classzz/classzz/rpcclient"
-	"github.com/classzz/czzutil"
+	"github.com/bourbaki-czz/classzz/rpcclient"
+	"github.com/bourbaki-czz/czzutil"
 	"io/ioutil"
 	"log"
 	"path/filepath"
@@ -1155,10 +1155,10 @@ information about the Genesis block, and display a few details about it.
 package main
 
 import (
-	"github.com/classzz/classzz/rpcclient"
-	"github.com/classzz/czzutil"
-	"github.com/classzz/classzz/chaincfg/chainhash"
-	"github.com/classzz/classzz/wire"
+	"github.com/bourbaki-czz/classzz/rpcclient"
+	"github.com/bourbaki-czz/czzutil"
+	"github.com/bourbaki-czz/classzz/chaincfg/chainhash"
+	"github.com/bourbaki-czz/classzz/wire"
 	"io/ioutil"
 	"log"
 	"path/filepath"
@@ -1247,10 +1247,10 @@ the notifications.
 package main
 
 import (
-	"github.com/classzz/classzz/rpcclient"
-	"github.com/classzz/czzutil"
-	"github.com/classzz/classzz/chaincfg/chainhash"
-	"github.com/classzz/classzz/wire"
+	"github.com/bourbaki-czz/classzz/rpcclient"
+	"github.com/bourbaki-czz/czzutil"
+	"github.com/bourbaki-czz/classzz/chaincfg/chainhash"
+	"github.com/bourbaki-czz/classzz/wire"
 	"io/ioutil"
 	"log"
 	"path/filepath"

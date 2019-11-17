@@ -9,7 +9,7 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/classzz/czzutil"
+	"github.com/bourbaki-czz/czzutil"
 )
 
 // TestTxFeePrioHeap ensures the priority queue for transaction fees and
